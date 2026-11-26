@@ -4,7 +4,7 @@ import { authConfig } from '@/lib/auth-config'
 import { getTenantContext } from '@/lib/tenant'
 import prisma from '@/lib/db'
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await await auth()
     if (!session) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const { action } = await req.json()
     const ret = await prisma.return.findFirst({
-      where: { id: params.id, tenantId: tenantContext.id },
+      where: { id: (await context.params).id, tenantId: tenantContext.id },
       include: { returnItems: { include: { orderItem: true } } },
     })
 
@@ -22,18 +22,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     if (action === 'approve') {
       await prisma.return.update({
-        where: { id: params.id },
-        data: { status: 'APPROVED', reviewedAt: new Date() },
+        where: { id: (await context.params).id },
+        data: { status: 'APPROVED', approvedAt: new Date() },
       })
     } else if (action === 'reject') {
       await prisma.return.update({
-        where: { id: params.id },
-        data: { status: 'REJECTED', reviewedAt: new Date() },
+        where: { id: (await context.params).id },
+        data: { status: 'REJECTED' },
       })
     } else if (action === 'received') {
       await prisma.return.update({
-        where: { id: params.id },
-        data: { status: 'RECEIVED', receivedAt: new Date() },
+        where: { id: (await context.params).id },
+        data: { status: 'RECEIVED' },
       })
       for (const item of ret.returnItems) {
         await prisma.product.update({
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
     } else if (action === 'refund') {
       await prisma.return.update({
-        where: { id: params.id },
+        where: { id: (await context.params).id },
         data: { status: 'REFUNDED', refundedAt: new Date() },
       })
       await prisma.order.update({

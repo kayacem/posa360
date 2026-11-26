@@ -3,7 +3,7 @@ import { auth } from '@/lib/next-auth'
 import { authConfig } from '@/lib/auth-config'
 import prisma from '@/lib/db'
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await await auth()
     if (!session || session.user.role !== 'SUPER_ADMIN') {
@@ -13,7 +13,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const { status } = await req.json()
 
     await prisma.tenant.update({
-      where: { id: params.id },
+      where: { id: (await context.params).id },
       data: { status },
     })
 

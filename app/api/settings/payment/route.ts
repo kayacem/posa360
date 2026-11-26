@@ -4,13 +4,13 @@ import prisma from '@/lib/db'
 
 interface PaymentProvider {
   provider: string
-  isEnabled: boolean
+  isActive: boolean
   apiKey?: string
   secretKey?: string
   merchantId?: string
   merchantKey?: string
   merchantSalt?: string
-  isTestMode: boolean
+  isSandbox: boolean
 }
 
 export async function POST(req: NextRequest) {
@@ -24,6 +24,14 @@ export async function POST(req: NextRequest) {
 
     // Update or create each payment setting
     for (const setting of settings) {
+      const credentials = JSON.stringify({
+        apiKey: setting.apiKey,
+        secretKey: setting.secretKey,
+        merchantId: setting.merchantId,
+        merchantKey: setting.merchantKey,
+        merchantSalt: setting.merchantSalt,
+      })
+      
       await prisma.paymentSetting.upsert({
         where: {
           tenantId_provider: {
@@ -32,24 +40,16 @@ export async function POST(req: NextRequest) {
           },
         },
         update: {
-          isEnabled: setting.isEnabled,
-          apiKey: setting.apiKey || null,
-          secretKey: setting.secretKey || null,
-          merchantId: setting.merchantId || null,
-          merchantKey: setting.merchantKey || null,
-          merchantSalt: setting.merchantSalt || null,
-          isTestMode: setting.isTestMode,
+          isActive: setting.isActive,
+          isSandbox: setting.isSandbox,
+          credentials,
         },
         create: {
           tenantId: tenantContext.id,
           provider: setting.provider,
-          isEnabled: setting.isEnabled,
-          apiKey: setting.apiKey || null,
-          secretKey: setting.secretKey || null,
-          merchantId: setting.merchantId || null,
-          merchantKey: setting.merchantKey || null,
-          merchantSalt: setting.merchantSalt || null,
-          isTestMode: setting.isTestMode,
+          isActive: setting.isActive,
+          isSandbox: setting.isSandbox,
+          credentials,
         },
       })
     }

@@ -107,9 +107,9 @@ export default async function OrderDetailPage({
                     )}
                     <div className="flex-1">
                       <div className="font-medium">{item.product.name}</div>
-                      {item.variant && (
+                      {item.variantName && (
                         <div className="text-sm text-gray-500">
-                          Varyant: {item.variant.name}
+                          Varyant: {item.variantName}
                         </div>
                       )}
                       <div className="text-sm text-gray-500">
@@ -117,7 +117,7 @@ export default async function OrderDetailPage({
                       </div>
                     </div>
                     <div className="font-medium">
-                      {formatCurrency(parseFloat(item.subtotal.toString()))}
+                      {formatCurrency(parseFloat(item.total.toString()))}
                     </div>
                   </div>
                 ))}
@@ -191,7 +191,9 @@ export default async function OrderDetailPage({
             <CardContent className="space-y-3">
               <div>
                 <div className="text-sm text-gray-500">Ad Soyad</div>
-                <div className="font-medium">{order.customer?.name || 'Misafir'}</div>
+                <div className="font-medium">
+                  {order.customer ? `${order.customer.firstName} ${order.customer.lastName}` : order.customerName || 'Misafir'}
+                </div>
               </div>
               {order.customer?.email && (
                 <div>
@@ -214,31 +216,31 @@ export default async function OrderDetailPage({
             </CardHeader>
             <CardContent>
               <div className="text-sm space-y-1">
-                <div>{order.shippingAddress?.line1}</div>
-                {order.shippingAddress?.line2 && <div>{order.shippingAddress.line2}</div>}
+                <div>{shippingAddress?.line1}</div>
+                {shippingAddress?.line2 && <div>{shippingAddress.line2}</div>}
                 <div>
-                  {order.shippingAddress?.district}, {order.shippingAddress?.city}
+                  {shippingAddress?.district}, {shippingAddress?.city}
                 </div>
-                <div>{order.shippingAddress?.postalCode}</div>
-                <div>{order.shippingAddress?.country}</div>
+                <div>{shippingAddress?.postalCode}</div>
+                <div>{shippingAddress?.country}</div>
               </div>
             </CardContent>
           </Card>
 
-          {order.billingAddress && (
+          {billingAddress && (
             <Card>
               <CardHeader>
                 <CardTitle>Fatura Adresi</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-sm space-y-1">
-                  <div>{order.billingAddress.line1}</div>
-                  {order.billingAddress.line2 && <div>{order.billingAddress.line2}</div>}
+                  <div>{billingAddress.line1}</div>
+                  {billingAddress.line2 && <div>{billingAddress.line2}</div>}
                   <div>
-                    {order.billingAddress.district}, {order.billingAddress.city}
+                    {billingAddress.district}, {billingAddress.city}
                   </div>
-                  <div>{order.billingAddress.postalCode}</div>
-                  <div>{order.billingAddress.country}</div>
+                  <div>{billingAddress.postalCode}</div>
+                  <div>{billingAddress.country}</div>
                 </div>
               </CardContent>
             </Card>
@@ -249,10 +251,12 @@ export default async function OrderDetailPage({
               <CardTitle>Ödeme Bilgileri</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Ödeme Yöntemi:</span>
-                <span className="font-medium">{order.paymentMethod}</span>
-              </div>
+              {order.payments.length > 0 && order.payments[0].method && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">Ödeme Yöntemi:</span>
+                  <span className="font-medium">{order.payments[0].method}</span>
+                </div>
+              )}
               {order.payments.length > 0 && (
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-500">Ödeme Durumu:</span>

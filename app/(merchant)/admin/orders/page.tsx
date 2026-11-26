@@ -67,7 +67,9 @@ export default async function OrdersPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div>
-                      <div className="font-medium">{order.customer?.name || 'Misafir'}</div>
+                      <div className="font-medium">
+                        {order.customer ? `${order.customer.firstName} ${order.customer.lastName}` : order.customerName || 'Misafir'}
+                      </div>
                       <div className="text-sm text-gray-500">{order.customer?.email}</div>
                     </div>
                   </td>

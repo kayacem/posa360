@@ -6,7 +6,7 @@ import prisma from '@/lib/db'
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await await auth()
@@ -23,7 +23,7 @@ export async function PATCH(
 
     const order = await prisma.order.findFirst({
       where: {
-        id: params.id,
+        id: (await context.params).id,
         tenantId: tenantContext.id,
       },
     })
@@ -33,7 +33,7 @@ export async function PATCH(
     }
 
     const updatedOrder = await prisma.order.update({
-      where: { id: params.id },
+      where: { id: (await context.params).id },
       data: { status },
     })
 

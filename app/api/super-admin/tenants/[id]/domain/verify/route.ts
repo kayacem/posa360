@@ -4,7 +4,7 @@ import { authConfig } from '@/lib/auth-config'
 import prisma from '@/lib/db'
 import { promises as dns } from 'dns'
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await await auth()
     if (!session || session.user.role !== 'SUPER_ADMIN') {
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
 
       await prisma.tenant.update({
-        where: { id: params.id },
+        where: { id: (await context.params).id },
         data: { customDomain: domain },
       })
 

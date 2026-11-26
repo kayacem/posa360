@@ -4,7 +4,7 @@ import { authConfig } from '@/lib/auth-config'
 import { getTenantContext } from '@/lib/tenant'
 import prisma from '@/lib/db'
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await await auth()
     if (!session || !['TENANT_OWNER', 'TENANT_STAFF'].includes(session.user.role)) {
@@ -19,7 +19,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const data = await req.json()
 
     await prisma.product.update({
-      where: { id: params.id },
+      where: { id: (await context.params).id },
       data: {
         name: data.name,
         slug: data.slug,
@@ -33,26 +33,26 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       },
     })
 
-    await prisma.productCategory.deleteMany({ where: { productId: params.id } })
+    await prisma.productCategory.deleteMany({ where: { productId: (await context.params).id } })
     if (data.categoryId) {
       await prisma.productCategory.create({
-        data: { productId: params.id, categoryId: data.categoryId },
+        data: { productId: (await context.params).id, categoryId: data.categoryId },
       })
     }
 
-    await prisma.productImage.deleteMany({ where: { productId: params.id } })
+    await prisma.productImage.deleteMany({ where: { productId: (await context.params).id } })
     for (const img of data.images || []) {
       await prisma.productImage.create({
-        data: { productId: params.id, url: img.url, sortOrder: img.sortOrder },
+        data: { productId: (await context.params).id, url: img.url, sortOrder: img.sortOrder },
       })
     }
 
-    await prisma.productVariant.deleteMany({ where: { productId: params.id } })
+    await prisma.productVariant.deleteMany({ where: { productId: (await context.params).id } })
     for (const v of data.variants || []) {
       if (v.name) {
         await prisma.productVariant.create({
           data: {
-            productId: params.id,
+            productId: (await context.params).id,
             name: v.name,
             sku: v.sku,
             price: parseFloat(v.price),

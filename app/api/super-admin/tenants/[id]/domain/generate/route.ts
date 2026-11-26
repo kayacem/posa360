@@ -3,7 +3,7 @@ import { auth } from '@/lib/next-auth'
 import { authConfig } from '@/lib/auth-config'
 import crypto from 'crypto'
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await await auth()
     if (!session || session.user.role !== 'SUPER_ADMIN') {

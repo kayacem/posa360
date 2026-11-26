@@ -40,11 +40,11 @@ export default async function AddressesPage() {
               )}
             </div>
             <div className="text-sm text-gray-600 space-y-1">
-              <div>{addr.fullName}</div>
+              <div>{addr.firstName} {addr.lastName}</div>
               <div>{addr.phone}</div>
-              <div>{addr.line1}</div>
-              {addr.line2 && <div>{addr.line2}</div>}
-              <div>{addr.district}, {addr.city}</div>
+              <div>{addr.addressLine1}</div>
+              {addr.addressLine2 && <div>{addr.addressLine2}</div>}
+              <div>{addr.ilce}, {addr.il}</div>
               <div>{addr.postalCode}</div>
             </div>
           </Card>

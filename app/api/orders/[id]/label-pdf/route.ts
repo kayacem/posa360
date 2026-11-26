@@ -4,7 +4,7 @@ import { getTenantContext } from '@/lib/tenant'
 import prisma from '@/lib/db'
 import { generateShippingLabelPDF } from '@/lib/pdf-generator'
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     if (!tenantContext) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
 
     const order = await prisma.order.findFirst({
-      where: { id: params.id, tenantId: tenantContext.id },
+      where: { id: (await context.params).id, tenantId: tenantContext.id },
       include: {
         customer: true,
         shipments: true,

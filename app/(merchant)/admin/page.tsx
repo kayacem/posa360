@@ -98,7 +98,7 @@ export default async function MerchantDashboard() {
                   <div>
                     <div className="font-medium">#{order.orderNumber}</div>
                     <div className="text-sm text-gray-500">
-                      {order.customer?.name || 'Misafir'}
+                      {order.customer ? `${order.customer.firstName} ${order.customer.lastName}` : order.customerName || 'Misafir'}
                     </div>
                   </div>
                   <div className="text-right">
