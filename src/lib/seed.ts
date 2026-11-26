@@ -485,6 +485,86 @@ export async function seedDatabase() {
   })
   console.log('✅ CMS pages created')
 
+  // Create orders for Tenant 1
+  console.log('Creating orders...')
+  
+  const order1 = await prisma.order.create({
+    data: {
+      tenantId: tenant1.id,
+      customerId: customer1.id,
+      orderNumber: 'ORD-001',
+      status: 'PENDING',
+      subtotal: 299.00,
+      shippingCost: 29.90,
+      tax: 65.78,
+      totalAmount: 394.68,
+      paymentMethod: 'CREDIT_CARD',
+      items: { create: [{ productId: product1.id, quantity: 2, price: 149.50, subtotal: 299.00 }] },
+      shippingAddress: { create: { customerId: customer1.id, title: 'Ev', fullName: 'Ayşe Yılmaz', phone: '5551234567', line1: 'Bağdat Cad 123', city: 'Istanbul', district: 'Kadıköy', postalCode: '34710', country: 'Türkiye', isDefault: true } },
+    },
+  })
+
+  const order2 = await prisma.order.create({
+    data: {
+      tenantId: tenant1.id,
+      customerId: customer1.id,
+      orderNumber: 'ORD-002',
+      status: 'SHIPPED',
+      subtotal: 450.00,
+      shippingCost: 0,
+      tax: 90.00,
+      totalAmount: 540.00,
+      paymentMethod: 'CREDIT_CARD',
+      items: { create: [{ productId: product2.id, quantity: 1, price: 450.00, subtotal: 450.00 }] },
+      shippingAddress: { create: { customerId: customer1.id, title: 'İş', fullName: 'Ayşe Yılmaz', phone: '5551234567', line1: 'Levent Plaza', city: 'Istanbul', district: 'Şişli', postalCode: '34330', country: 'Türkiye' } },
+    },
+  })
+
+  await prisma.shipment.create({
+    data: { orderId: order2.id, carrier: 'Yurtiçi Kargo', trackingNumber: 'YK123456789', status: 'IN_TRANSIT', shippedAt: new Date() },
+  })
+
+  const order3 = await prisma.order.create({
+    data: {
+      tenantId: tenant1.id,
+      customerId: customer1.id,
+      orderNumber: 'ORD-003',
+      status: 'DELIVERED',
+      subtotal: 199.00,
+      shippingCost: 29.90,
+      tax: 45.78,
+      totalAmount: 274.68,
+      paymentMethod: 'CREDIT_CARD',
+      items: { create: [{ productId: product1.id, quantity: 1, price: 199.00, subtotal: 199.00 }] },
+      shippingAddress: { create: { customerId: customer1.id, title: 'Ev', fullName: 'Ayşe Yılmaz', phone: '5551234567', line1: 'Test Sok 1', city: 'Istanbul', district: 'Kadıköy', postalCode: '34710', country: 'Türkiye' } },
+    },
+  })
+
+  const orderItem = await prisma.orderItem.findFirst({ where: { orderId: order3.id } })
+  
+  await prisma.return.create({
+    data: {
+      tenantId: tenant1.id,
+      orderId: order3.id,
+      customerId: customer1.id,
+      returnNumber: 'RET-001',
+      status: 'REQUESTED',
+      reason: 'Beden uygun değil',
+      refundAmount: 274.68,
+      returnItems: { create: [{ orderItemId: orderItem!.id, quantity: 1, reason: 'WRONG_SIZE' }] },
+    },
+  })
+
+  await prisma.order.createMany({
+    data: [
+      { tenantId: tenant1.id, customerId: customer1.id, orderNumber: 'ORD-004', status: 'CONFIRMED', subtotal: 350, shippingCost: 29.90, tax: 75.98, totalAmount: 455.88, paymentMethod: 'BANK_TRANSFER' },
+      { tenantId: tenant1.id, customerId: customer1.id, orderNumber: 'ORD-005', status: 'PROCESSING', subtotal: 280, shippingCost: 29.90, tax: 61.98, totalAmount: 371.88, paymentMethod: 'CREDIT_CARD' },
+      { tenantId: tenant1.id, customerId: customer1.id, orderNumber: 'ORD-006', status: 'CANCELLED', subtotal: 150, shippingCost: 29.90, tax: 35.98, totalAmount: 215.88, paymentMethod: 'CREDIT_CARD' },
+    ],
+  })
+
+  console.log('✅ Orders created')
+
   console.log('✅ Database seeding completed!')
   console.log('\n📋 Demo Credentials:')
   console.log('Super Admin: admin@posa360.com / admin123')
