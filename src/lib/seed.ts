@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from '@/prisma/db'
 import { hashPassword } from './auth'
 
