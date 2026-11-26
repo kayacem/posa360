@@ -1,3 +1,4 @@
+import { checkForErrors, setupErrorListeners } from '../helpers/error-detection'
 import { test } from '@playwright/test'
 
 test.describe('Platform Screenshots', () => {

@@ -1,3 +1,4 @@
+import { checkForErrors, setupErrorListeners } from '../helpers/error-detection'
 import { test, expect } from '@playwright/test'
 
 test.describe('Full Order Lifecycle', () => {

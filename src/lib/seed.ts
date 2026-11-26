@@ -737,3 +737,7 @@ export async function seedDatabase() {
   console.log('Customer 1: musteri@example.com / customer123')
   console.log('Customer 2: ali@example.com / customer123')
 }
+
+await seedDatabase()
+console.log('✅ Seed complete')
+

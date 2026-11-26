@@ -1,3 +1,4 @@
+import { checkForErrors, setupErrorListeners } from '../helpers/error-detection'
 import { test, expect, Page } from '@playwright/test'
 
 // Helper functions
