@@ -13,6 +13,8 @@ export type TenantContext = {
     primaryColor: string
     secondaryColor: string
     logoUrl: string | null
+    bannerUrl: string | null
+    taxRate: number
   }
 }
 
@@ -27,14 +29,16 @@ export async function getTenantContext(): Promise<TenantContext | null> {
       name: 'POSA360 Super Admin',
       customDomain: null,
       type: 'super-admin',
-      settings: {
-        currency: 'TRY',
-        locale: 'tr-TR',
-        primaryColor: '#000000',
-        secondaryColor: '#ffffff',
-        logoUrl: null,
-      },
-    }
+    settings: {
+      currency: 'TRY',
+      locale: 'tr-TR',
+      primaryColor: '#000000',
+      secondaryColor: '#ffffff',
+      logoUrl: null,
+      bannerUrl: null,
+      taxRate: 0.2,
+    },
+  }
   }
   
   const tenantIdentifier = headersList.get('x-tenant-identifier')
@@ -67,6 +71,8 @@ export async function getTenantContext(): Promise<TenantContext | null> {
       primaryColor: tenant.primaryColor,
       secondaryColor: tenant.secondaryColor,
       logoUrl: tenant.logoUrl,
+      bannerUrl: tenant.bannerUrl,
+      taxRate: tenant.taxRate,
     },
   }
 }

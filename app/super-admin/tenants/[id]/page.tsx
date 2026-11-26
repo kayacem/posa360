@@ -4,6 +4,9 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { TenantActions } from '@/components/super-admin/TenantActions'
 import { DomainBindingForm } from '@/components/super-admin/DomainBindingForm'
+import { TenantCrmForm } from '@/components/super-admin/TenantCrmForm'
+import { TenantPaymentsPanel } from '@/components/super-admin/TenantPaymentsPanel'
+import { SimpleBarChart } from '@/components/charts/SimpleBarChart'
 
 export default async function TenantDetailPage({
   params,
@@ -17,6 +20,10 @@ export default async function TenantDetailPage({
       _count: {
         select: { products: true, orders: true, customers: true },
       },
+      tenantPayments: {
+        orderBy: { period: 'desc' },
+        take: 12,
+      },
     },
   })
 
@@ -28,18 +35,34 @@ export default async function TenantDetailPage({
     take: 10,
   })
 
-  const totalRevenue = orders.reduce((sum, o) => sum + parseFloat(o.total.toString()), 0)
-  const monthlyRevenue = orders
+  const allOrders = await prisma.order.findMany({
+    where: { tenantId: tenant.id },
+    select: { total: true, createdAt: true },
+  })
+
+  const totalRevenue = allOrders.reduce((sum, o) => sum + o.total, 0)
+  const monthlyRevenue = allOrders
     .filter((o) => new Date(o.createdAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
-    .reduce((sum, o) => sum + parseFloat(o.total.toString()), 0)
+    .reduce((sum, o) => sum + o.total, 0)
 
   const tenureDays = Math.floor((Date.now() - tenant.createdAt.getTime()) / (24 * 60 * 60 * 1000))
+  const tenureMonths = Math.max(0, Math.floor(tenureDays / 30))
+
+  const paymentChart = [...tenant.tenantPayments]
+    .reverse()
+    .map((p) => ({
+      period: p.period,
+      amount: p.status === 'PAID' ? p.amount : 0,
+      due: p.amount,
+    }))
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">{tenant.name}</h1>
-        <p className="text-gray-500">Tenant CRM Detayı</p>
+        <p className="text-gray-500">
+          Tenant CRM Detayı · {tenureMonths} ay / {tenureDays} gün müşteri
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -47,37 +70,24 @@ export default async function TenantDetailPage({
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle>Genel Bilgiler</CardTitle>
+                <CardTitle>CRM Bilgileri</CardTitle>
                 <TenantActions tenantId={tenant.id} currentStatus={tenant.status} />
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-gray-500">Şirket Adı</label>
-                  <div className="font-medium">{tenant.companyName}</div>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Slug</label>
-                  <div className="font-medium">{tenant.slug}</div>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">İletişim Kişisi</label>
-                  <div className="font-medium">{tenant.contactPerson}</div>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">E-posta</label>
-                  <div className="font-medium">{tenant.contactEmail}</div>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Telefon</label>
-                  <div className="font-medium">{tenant.contactPhone}</div>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Vergi No</label>
-                  <div className="font-medium">{tenant.taxNumber}</div>
-                </div>
-              </div>
+            <CardContent>
+              <TenantCrmForm
+                tenantId={tenant.id}
+                initial={{
+                  companyName: tenant.companyName || '',
+                  contactPerson: tenant.contactPerson || '',
+                  contactEmail: tenant.contactEmail || '',
+                  contactPhone: tenant.contactPhone || '',
+                  taxNumber: tenant.taxNumber || '',
+                  address: tenant.address || '',
+                  monthlyFee: tenant.monthlyFee,
+                  plan: tenant.plan,
+                }}
+              />
             </CardContent>
           </Card>
 
@@ -104,6 +114,33 @@ export default async function TenantDetailPage({
 
           <Card>
             <CardHeader>
+              <CardTitle>Aylık Ödeme Geçmişi</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <SimpleBarChart
+                data={paymentChart}
+                xKey="period"
+                bars={[
+                  { key: 'amount', color: '#16a34a', name: 'Tahsil' },
+                  { key: 'due', color: '#94a3b8', name: 'Beklenen' },
+                ]}
+              />
+              <TenantPaymentsPanel
+                tenantId={tenant.id}
+                payments={tenant.tenantPayments.map((p) => ({
+                  id: p.id,
+                  period: p.period,
+                  amount: p.amount,
+                  status: p.status,
+                  paidAt: p.paidAt?.toISOString() || null,
+                  dueDate: p.dueDate.toISOString(),
+                }))}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Son Siparişler</CardTitle>
             </CardHeader>
             <CardContent>
@@ -115,7 +152,7 @@ export default async function TenantDetailPage({
                       <div className="text-sm text-gray-500">{formatDate(order.createdAt)}</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-medium">{formatCurrency(parseFloat(order.total.toString()))}</div>
+                      <div className="font-medium">{formatCurrency(order.total)}</div>
                       <div className="text-sm text-gray-500">{order.status}</div>
                     </div>
                   </div>
@@ -158,7 +195,9 @@ export default async function TenantDetailPage({
                   className={`inline-block px-2 py-1 rounded text-xs ${
                     tenant.lastPaymentStatus === 'PAID'
                       ? 'bg-green-100 text-green-800'
-                      : 'bg-yellow-100 text-yellow-800'
+                      : tenant.lastPaymentStatus === 'OVERDUE'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-yellow-100 text-yellow-800'
                   }`}
                 >
                   {tenant.lastPaymentStatus}
@@ -174,7 +213,9 @@ export default async function TenantDetailPage({
             <CardContent className="space-y-3">
               <div>
                 <label className="text-sm text-gray-500">Müşteri Süresi</label>
-                <div className="font-medium">{tenureDays} gün</div>
+                <div className="font-medium">
+                  {tenureMonths} ay ({tenureDays} gün)
+                </div>
               </div>
               <div>
                 <label className="text-sm text-gray-500">Toplam Gelir</label>

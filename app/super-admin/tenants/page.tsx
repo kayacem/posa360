@@ -15,6 +15,8 @@ export default async function TenantsPage() {
     },
   })
 
+  const now = Date.now()
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b">
@@ -68,7 +70,14 @@ export default async function TenantsPage() {
                       )}
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
-                        <span>Müşteri: {formatDate(tenant.createdAt)}</span>
+                        <span>
+                          Müşteri: {formatDate(tenant.createdAt)} (
+                          {Math.max(0, Math.floor((now - tenant.createdAt.getTime()) / (30 * 86400000)))} ay)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <DollarSign className="h-4 w-4" />
+                        <span>{formatCurrency(tenant.monthlyFee)} / ay</span>
                       </div>
                     </div>
                   </div>
@@ -102,7 +111,7 @@ export default async function TenantsPage() {
                     <h4 className="text-sm font-semibold text-gray-700 mb-2">Vergi Bilgisi</h4>
                     <div className="space-y-1 text-sm">
                       <p><strong>VKN:</strong> {tenant.taxNumber || '-'}</p>
-                      <p><strong>Adres:</strong> {tenant.address ? JSON.parse(tenant.address).il : '-'}</p>
+                      <p><strong>Adres:</strong> {tenant.address || '-'}</p>
                     </div>
                   </div>
 

@@ -85,6 +85,7 @@ model Tenant {
   nextPaymentDue    DateTime?
   
   logoUrl       String?
+  bannerUrl     String?
   primaryColor  String   @default("#000000")
   secondaryColor String  @default("#ffffff")
   
@@ -117,7 +118,7 @@ model Tenant {
   auditLogs     AuditLog[]
   domainVerifications DomainVerification[]
   returns       Return[]
-  subscriptionPayments SubscriptionPayment[]
+  tenantPayments TenantPayment[]
 }
 
 model User {
@@ -681,30 +682,26 @@ model DomainVerification {
   @@index([tenantId])
 }
 
-model SubscriptionPayment {
+model TenantPayment {
   id          String   @id @default(cuid())
   tenantId    String
   
+  /// Billing period label, e.g. "2026-01"
+  period      String
   amount      Float
   currency    String   @default("TRY")
   
   status      PaymentStatusEnum @default(PENDING)
-  
-  periodStart DateTime
-  periodEnd   DateTime
-  
   paidAt      DateTime?
   dueDate     DateTime
   
-  paymentMethod String?
-  
-  invoiceNumber String?
-  notes         String?
+  notes       String?
   
   createdAt   DateTime @default(now())
   
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   
+  @@unique([tenantId, period])
   @@index([tenantId])
   @@index([status])
 }

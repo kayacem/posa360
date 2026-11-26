@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/next-auth'
-import { authConfig } from '@/lib/auth-config'
 import { getTenantContext } from '@/lib/tenant'
 import prisma from '@/lib/db'
+import { permissionDeniedResponse, requireTenantPermission } from '@/lib/permissions'
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await await auth()
-    if (!session || !['TENANT_OWNER', 'TENANT_STAFF'].includes(session.user.role)) {
-      return NextResponse.json({ error: 'Yetkisiz erişim' }, { status: 401 })
-    }
+    const ctx = await requireTenantPermission('products')
 
     const tenantContext = await getTenantContext()
-    if (!tenantContext) {
+    if (!tenantContext || tenantContext.id !== ctx.tenantId) {
       return NextResponse.json({ error: 'Tenant bulunamadı' }, { status: 404 })
     }
 
@@ -44,6 +40,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, product })
   } catch (error: any) {
+    if (error?.message === 'UNAUTHORIZED' || error?.message === 'FORBIDDEN') {
+      return permissionDeniedResponse(error)
+    }
     console.error('Product creation error:', error)
     return NextResponse.json(
       { error: error.message || 'Ürün oluşturulamadı' },

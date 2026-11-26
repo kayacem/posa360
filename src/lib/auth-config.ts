@@ -39,6 +39,7 @@ export const authConfig = {
             tenantId: tu.tenantId,
             tenantSlug: tu.tenant.slug,
             role: tu.role,
+            permissions: tu.permissions || [],
           })),
         }
       },

@@ -89,6 +89,16 @@ export default async function StorefrontLayout({
         </div>
       </header>
 
+      {tenant.settings.bannerUrl && (
+        <div className="w-full bg-gray-100">
+          <img
+            src={tenant.settings.bannerUrl}
+            alt={`${tenant.name} banner`}
+            className="w-full max-h-56 object-cover"
+          />
+        </div>
+      )}
+
       <main className="flex-1">
         {children}
       </main>

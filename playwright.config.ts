@@ -22,6 +22,7 @@ export default defineConfig({
         '**/working-flows.spec.ts',
         '**/comprehensive-flow.spec.ts',
         '**/cross-tenant-isolation.spec.ts',
+        '**/features-crm-staff-branding.spec.ts',
         '**/screenshots.spec.ts',
       ],
       use: {
@@ -35,6 +36,7 @@ export default defineConfig({
       testMatch: [
         '**/admin-authenticated.spec.ts',
         '**/authenticated-flows.spec.ts',
+        '**/features-crm-staff-branding.spec.ts',
         '**/screenshots.spec.ts',
       ],
       use: {

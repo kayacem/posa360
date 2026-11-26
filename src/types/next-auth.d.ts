@@ -9,6 +9,7 @@ declare module 'next-auth' {
         tenantId: string
         tenantSlug: string
         role: string
+        permissions: string[]
       }>
     } & DefaultSession['user']
   }
@@ -19,6 +20,7 @@ declare module 'next-auth' {
       tenantId: string
       tenantSlug: string
       role: string
+      permissions: string[]
     }>
   }
 }
@@ -31,6 +33,7 @@ declare module 'next-auth/jwt' {
       tenantId: string
       tenantSlug: string
       role: string
+      permissions: string[]
     }>
   }
 }
