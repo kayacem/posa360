@@ -116,6 +116,7 @@ model Tenant {
   taxSettings   TaxSetting[]
   auditLogs     AuditLog[]
   domainVerifications DomainVerification[]
+  returns       Return[]
   subscriptionPayments SubscriptionPayment[]
 }
 
@@ -419,8 +420,9 @@ model OrderItem {
   price         Float
   total         Float
   
-  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product       Product  @relation(fields: [productId], references: [id])
+  order         Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product       Product      @relation(fields: [productId], references: [id])
+  returnItems   ReturnItem[]
   
   @@index([orderId])
 }
@@ -530,6 +532,7 @@ model ShippingRule {
 
 model Return {
   id            String   @id @default(cuid())
+  tenantId      String
   orderId       String
   
   returnNumber  String   @unique
@@ -539,8 +542,6 @@ model Return {
   images        String[]
   
   status        ReturnStatus @default(REQUESTED)
-  
-  items         String
   
   approvedAt    DateTime?
   approvedBy    String?
@@ -555,9 +556,25 @@ model Return {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
-  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order         Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  returnItems   ReturnItem[]
   
+  @@index([tenantId])
   @@index([orderId])
+}
+
+model ReturnItem {
+  id          String @id @default(cuid())
+  returnId    String
+  orderItemId String
+  quantity    Int
+  reason      String?
+  
+  return      Return    @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
+  
+  @@index([returnId])
 }
 
 model Coupon {

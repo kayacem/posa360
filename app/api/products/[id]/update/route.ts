@@ -53,11 +53,12 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         await prisma.productVariant.create({
           data: {
             productId: (await context.params).id,
-            name: v.name,
-            sku: v.sku,
-            price: parseFloat(v.price),
-            stock: parseInt(v.stock || '0'),
-            isActive: v.isActive ?? true,
+            name: String(v.name),
+            sku: String(v.sku || ''),
+            price: parseFloat(String(v.price)),
+            stock: parseInt(String(v.stock || '0')),
+            isActive: Boolean(v.isActive ?? true),
+            options: v.options ? String(v.options) : '{}',
           },
         })
       }

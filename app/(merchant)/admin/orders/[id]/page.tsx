@@ -37,6 +37,18 @@ export default async function OrderDetailPage({
     notFound()
   }
 
+  // Parse JSON addresses
+  type Address = {
+    line1?: string
+    line2?: string
+    district?: string
+    city?: string
+    postalCode?: string
+    country?: string
+  }
+  const shippingAddress: Address | null = order.shippingAddress ? JSON.parse(order.shippingAddress) : null
+  const billingAddress: Address | null = order.billingAddress ? JSON.parse(order.billingAddress) : null
+
   const statusColors: Record<string, string> = {
     PENDING: 'bg-yellow-100 text-yellow-800',
     CONFIRMED: 'bg-blue-100 text-blue-800',

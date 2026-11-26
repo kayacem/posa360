@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       include: {
         customer: true,
         items: { include: { product: true } },
-        shippingAddress: true,
+        payments: true,
       },
     })
 

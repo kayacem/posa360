@@ -603,19 +603,24 @@ export async function seedDatabase() {
 
   const orderItem3 = await prisma.orderItem.findFirst({ where: { orderId: order3.id } })
   
-  await prisma.return.create({
+  const returnRecord = await prisma.return.create({
     data: {
+      tenantId: tenant1.id,
       orderId: order3.id,
       returnNumber: 'RET-001',
       status: 'REQUESTED',
       reason: 'Beden uygun değil',
       description: 'Ürün beklediğimden daha küçük geldi, bir beden büyük istiyorum.',
-      items: JSON.stringify([{
-        orderItemId: orderItem3!.id,
-        quantity: 1,
-        reason: 'WRONG_SIZE',
-      }]),
       refundAmount: 215.76,
+    },
+  })
+  
+  await prisma.returnItem.create({
+    data: {
+      returnId: returnRecord.id,
+      orderItemId: orderItem3!.id,
+      quantity: 1,
+      reason: 'WRONG_SIZE',
     },
   })
 

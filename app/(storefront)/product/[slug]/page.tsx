@@ -1,5 +1,5 @@
 import { getTenantContext } from '@/lib/tenant'
-import { db } from '@/prisma/db'
+import prisma from '@/lib/db'
 import { notFound } from 'next/navigation'
 import { AddToCartButton } from '@/components/product/AddToCartButton'
 import { ProductImages } from '@/components/product/ProductImages'

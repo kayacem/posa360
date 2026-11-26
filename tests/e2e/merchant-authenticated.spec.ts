@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { checkForErrors, setupErrorListeners } from '../helpers/error-detection'
 
 test.describe('Merchant Authenticated Flows', () => {
   test.beforeEach(async ({ }, testInfo) => {
@@ -6,19 +7,21 @@ test.describe('Merchant Authenticated Flows', () => {
   })
 
   test('merchant can view orders', async ({ page }) => {
+    const errorListener = setupErrorListeners(page, 'merchant orders')
+    
     await page.goto('http://shopmagaza.localhost:43210/admin/orders')
     await page.waitForTimeout(1500)
     
-    // Check no Next.js error
-    const bodyText = await page.textContent('body')
-    expect(bodyText).not.toContain('Runtime Error')
-    expect(bodyText).not.toContain('TypeError')
+    // Check for errors
+    await checkForErrors(page, 'merchant orders')
+    expect(errorListener.hasErrors()).toBe(false)
     
     // Should NOT be on login page
     expect(page.url()).not.toContain('login')
     expect(page.url()).toContain('/admin/orders')
     
     // Assert real data
+    const bodyText = await page.textContent('body')
     expect(bodyText).toContain('ORD-')
   })
   

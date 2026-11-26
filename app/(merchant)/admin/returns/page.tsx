@@ -59,8 +59,10 @@ export default async function ReturnsPage() {
                 <tr key={ret.id} data-testid="return-row">
                   <td className="px-6 py-4">#{ret.returnNumber}</td>
                   <td className="px-6 py-4">#{ret.order.orderNumber}</td>
-                  <td className="px-6 py-4">{ret.order.customer?.name || 'Misafir'}</td>
-                  <td className="px-6 py-4">{formatCurrency(parseFloat(ret.refundAmount.toString()))}</td>
+                  <td className="px-6 py-4">
+                    {ret.order.customer ? `${ret.order.customer.firstName} ${ret.order.customer.lastName}` : ret.order.customerName || 'Misafir'}
+                  </td>
+                  <td className="px-6 py-4">{formatCurrency(parseFloat((ret.refundAmount || 0).toString()))}</td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded-full text-xs ${statusColors[ret.status]}`}>
                       {ret.status}
