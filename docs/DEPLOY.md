@@ -2,6 +2,8 @@
 
 Tek sunucuda Docker Compose: **app** (Next.js standalone) + **Postgres 16** (dışarı kapalı) + **Caddy** (80/443, TLS).
 
+> **Önemli:** `posa360.com` apex (ve `/eticaret` vb. marketing sayfaları) **bu uygulamaya ait değildir**. Apex/www marketing sitesinde kalır. Bu stack yalnızca alt alan adlarını ve merchant özel domainlerini sunar.
+
 ## 1. VPS hazırlığı
 
 ```bash
@@ -35,29 +37,43 @@ chmod +x scripts/*.sh deploy/caddy/entrypoint.sh
 
 ## 2. DNS — platform (`posa360.com`)
 
-| Tip | Host | Değer |
-|-----|------|--------|
-| A | `@` | VPS public IP |
-| A | `*` | VPS public IP |
-| A | `admin` | VPS public IP |
+**Apex (`@`) ve `www` kaydını değiştirmeyin** — marketing sitesi orada kalır.
 
-`admin.posa360.com` → süper admin paneli.  
-`magazaadi.posa360.com` → mağaza vitrini; `magazaadi.posa360.com/admin` → merchant panel.
+Bu uygulama için VPS’e yönlendirin:
+
+| Tip | Host | Değer | Not |
+|-----|------|--------|-----|
+| A | `app` | VPS public IP | Kayıt / giriş (`app.posa360.com`) |
+| A | `admin` | VPS public IP | Süper admin (`admin.posa360.com`) |
+| A | `*` | VPS public IP | Mağaza subdomainleri (`{slug}.posa360.com`) |
+
+Caddy **`posa360.com` / `www.posa360.com` claim etmez**; yalnızca `*.posa360.com` (+ özel merchant domainleri).
+
+Host → görev:
+
+| Host | Görev |
+|------|--------|
+| `app.posa360.com` | Platform giriş + kayıt (`/login`, **`/kayit`**) |
+| `admin.posa360.com` | Süper admin paneli |
+| `{slug}.posa360.com` | Mağaza vitrini; `{slug}.posa360.com/admin` merchant panel |
+| `www` / `mail` / apex | Bu app’te **yok** (404 / marketing) |
+
+Marketing CTA örneği: `https://app.posa360.com/kayit`
 
 ### TLS modu
 
 `.env.production` içinde:
 
-- **`TLS_MODE=ondemand`** (varsayılan): her hostname için ayrı sertifika; Cloudflare gerekmez. Wildcard tek sertifika **yok**.
-- **`TLS_MODE=dns`**: Cloudflare DNS challenge ile `*.posa360.com` wildcard. `CLOUDFLARE_API_TOKEN` zorunlu (Zone:DNS:Edit).
+- **`TLS_MODE=ondemand`** (varsayılan): her subdomain için ayrı sertifika; Cloudflare gerekmez.
+- **`TLS_MODE=dns`**: Cloudflare DNS challenge ile `*.posa360.com` wildcard. `CLOUDFLARE_API_TOKEN` zorunlu (Zone:DNS:Edit). Apex’i kapsamaz.
 
-Özel merchant domainleri her iki modda da **On-Demand TLS** + `/api/internal/domain-check` ile doğrulanır.
+Özel merchant domainleri her iki modda da **On-Demand TLS** + `/api/internal/domain-check` ile doğrulanır (apex/www platform için 404).
 
 ## 3. DNS — merchant özel domain (örn. `shopcem.com`)
 
 | Tip | Host | Değer |
 |-----|------|--------|
-| A | `@` | VPS IP **veya** CNAME → `elektronikdunya.posa360.com` |
+| A | `@` | VPS IP **veya** CNAME → `{slug}.posa360.com` |
 | CNAME | `www` | `shopcem.com` (veya tenant subdomain) |
 | CNAME | `admin` | `shopcem.com` (veya tenant subdomain) |
 | TXT | `_posa360-verification` | Super-admin panelden üretilen token |
@@ -88,7 +104,11 @@ SEED_SUPER_ADMIN_NAME=Platform Admin
 
 İlk `up` sırasında yoksa oluşturulur. Sonra bu satırları silebilir veya boş bırakabilirsiniz (tekrar çalıştırmaz / mevcutu atlar).
 
-Giriş: `https://admin.posa360.com` (veya `https://posa360.com/super-admin`).
+Girişler:
+
+- Super admin: `https://admin.posa360.com`
+- Merchant kayıt: `https://app.posa360.com/kayit`
+- Merchant giriş: `https://app.posa360.com/login`
 
 ## 5. Güncelleme
 
@@ -134,5 +154,6 @@ docker compose -f docker-compose.prod.yml --env-file .env.production logs -f cad
 ## 8. Mimari notlar
 
 - Postgres host’a port açmaz; sadece `posa360` Docker ağı.
-- Caddy On-Demand TLS, `ask http://app:3000/api/internal/domain-check` — yalnızca doğrulanmış özel domain (ve `admin.*`) 200 döner.
-- `NEXT_PUBLIC_PLATFORM_DOMAIN` middleware’in subdomain / custom domain ayrımını belirler.
+- Caddy site blocks: `*.posa360.com` + On-Demand `https://` (custom domains) — **apex/www yok**.
+- `/api/internal/domain-check` apex/www için 404; doğrulanmış özel domain (+ `admin.*`) ve platform alt alan adları için 200.
+- `NEXT_PUBLIC_PLATFORM_DOMAIN=posa360.com` (apex’i ayırır; app host = `app.` + domain).

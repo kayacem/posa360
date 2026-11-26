@@ -7,8 +7,9 @@
 	}
 }
 
-# Platform apex + wildcard via Cloudflare DNS challenge
-posa360.com, *.posa360.com {
+# IMPORTANT: Do NOT claim posa360.com or www — marketing site lives on apex elsewhere.
+# Wildcard covers app / admin / {store} (and other one-level subdomains).
+*.posa360.com {
 	tls {
 		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
 	}
@@ -16,7 +17,7 @@ posa360.com, *.posa360.com {
 	reverse_proxy app:3000
 }
 
-# Merchant custom domains (On-Demand TLS; ask endpoint gates issuance)
+# Merchant custom domains only (On-Demand TLS; ask endpoint gates issuance)
 https:// {
 	tls {
 		on_demand

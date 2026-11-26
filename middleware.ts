@@ -1,31 +1,40 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// Platform ana domain (production'da posa360.com)
+// Platform root domain (apex is marketing — this app does NOT serve it)
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN || 'localhost:43210'
 const PLATFORM_HOST = PLATFORM_DOMAIN.split(':')[0].toLowerCase()
+
+/** Subdomains that are never store tenants */
+const RESERVED_SUBDOMAINS = new Set(['www', 'app', 'admin', 'mail', 'panel'])
 
 function hostWithoutPort(hostname: string): string {
   return hostname.split(':')[0].toLowerCase()
 }
 
-function isPlatformApex(host: string): boolean {
-  return (
-    host === PLATFORM_HOST ||
-    host === `www.${PLATFORM_HOST}` ||
-    host === 'localhost' ||
-    host === '127.0.0.1' ||
-    host === '::1'
-  )
+function isLocalDevHost(host: string): boolean {
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1'
 }
 
+/** app.posa360.com (+ bare localhost for local login/kayit) */
+function isPlatformAppHost(host: string): boolean {
+  return host === `app.${PLATFORM_HOST}` || isLocalDevHost(host)
+}
+
+/** admin.posa360.com | panel.posa360.com */
 function isPlatformAdminHost(host: string): boolean {
-  // admin.posa360.com or panel.posa360.com → super-admin
   return host === `admin.${PLATFORM_HOST}` || host === `panel.${PLATFORM_HOST}`
 }
 
 function stripWww(host: string): string {
   return host.startsWith('www.') ? host.slice(4) : host
+}
+
+function platformSubdomain(host: string): string | null {
+  if (!host.endsWith(`.${PLATFORM_HOST}`)) return null
+  const sub = host.slice(0, -(`.${PLATFORM_HOST}`.length))
+  if (!sub || sub.includes('.')) return sub.split('.')[0] || null
+  return sub
 }
 
 export function middleware(request: NextRequest) {
@@ -41,12 +50,34 @@ export function middleware(request: NextRequest) {
   headers.delete('x-tenant-custom-domain')
   headers.delete('x-tenant-path-based')
 
-  // Internal TLS ask endpoint — no tenant rewrite needed
+  // Internal TLS ask endpoint — no tenant rewrite
   if (url.pathname.startsWith('/api/internal/')) {
     return NextResponse.next({ request: { headers } })
   }
 
-  // 1. Super Admin: admin.posa360.com | panel.posa360.com | /super-admin
+  // Apex / www must not be served by this app (marketing site). Refuse if misrouted.
+  if (
+    !isLocalDevHost(host) &&
+    (host === PLATFORM_HOST || host === `www.${PLATFORM_HOST}`)
+  ) {
+    return new NextResponse(
+      'posa360.com apex is the marketing site — use app.posa360.com / admin.posa360.com / {store}.posa360.com',
+      { status: 404 }
+    )
+  }
+
+  // 1. Platform app hub: app.posa360.com (login + kayit) / localhost
+  if (isPlatformAppHost(host)) {
+    headers.set('x-tenant-type', 'platform-app')
+    if (url.pathname === '/' || url.pathname === '') {
+      url.pathname = '/login'
+      return NextResponse.rewrite(url, { request: { headers } })
+    }
+    // /kayit, /login, /platform, /api/* etc. pass through
+    return NextResponse.rewrite(url, { request: { headers } })
+  }
+
+  // 2. Super Admin: admin.posa360.com | panel.posa360.com | /super-admin
   if (isPlatformAdminHost(host) || url.pathname.startsWith('/super-admin')) {
     headers.set('x-tenant-type', 'super-admin')
     if (isPlatformAdminHost(host) && (url.pathname === '/' || url.pathname === '')) {
@@ -56,53 +87,44 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(url, { request: { headers } })
   }
 
-  // Platform hub on apex (posa360.com / localhost)
-  if (isPlatformApex(host) && (url.pathname === '/' || url.pathname === '')) {
-    url.pathname = '/platform'
-    return NextResponse.rewrite(url, { request: { headers } })
+  // Reserved platform subdomains (mail, www already handled, etc.) — not stores
+  const reservedSub = platformSubdomain(host)
+  if (reservedSub && RESERVED_SUBDOMAINS.has(reservedSub)) {
+    return new NextResponse('Not found', { status: 404 })
   }
 
   const isAdminSubdomain = host.startsWith('admin.')
   const isAdminPath = url.pathname.startsWith('/admin')
 
-  // 2. Merchant Admin: admin.customdomain.com | admin.slug.posa360.com | slug.posa360.com/admin
+  // 3. Merchant Admin: admin.customdomain | slug.posa360.com/admin
   if (isAdminSubdomain || isAdminPath) {
     let tenantIdentifier: string | null = null
     let isCustomDomain = false
 
     if (isAdminSubdomain) {
-      // admin.shopcem.com → custom domain shopcem.com
-      // admin.shopmagaza.posa360.com → slug shopmagaza
       const withoutAdmin = host.slice('admin.'.length)
 
       if (withoutAdmin === PLATFORM_HOST || withoutAdmin.endsWith(`.${PLATFORM_HOST}`)) {
-        // admin.slug.posa360.com (platform subdomain merchant admin)
-        const sub = withoutAdmin.slice(0, -(`.${PLATFORM_HOST}`.length))
+        // admin.slug.posa360.com
+        const sub = withoutAdmin.endsWith(`.${PLATFORM_HOST}`)
+          ? withoutAdmin.slice(0, -(`.${PLATFORM_HOST}`.length))
+          : null
         tenantIdentifier = sub || null
-      } else if (withoutAdmin.includes(PLATFORM_HOST)) {
-        // fallback: admin.shopmagaza.posa360.com style already handled above
-        const parts = withoutAdmin.split('.')
-        tenantIdentifier = parts[0] || null
       } else {
         tenantIdentifier = stripWww(withoutAdmin)
         isCustomDomain = true
       }
     } else if (isAdminPath) {
-      if (host.endsWith(`.${PLATFORM_HOST}`) && !isPlatformApex(host)) {
-        tenantIdentifier = host.slice(0, -(`.${PLATFORM_HOST}`.length)).split('.')[0]
-      } else if (!host.includes(PLATFORM_HOST) && !isPlatformApex(host)) {
-        // custom domain + /admin path
+      const sub = platformSubdomain(host)
+      if (sub && !RESERVED_SUBDOMAINS.has(sub)) {
+        tenantIdentifier = sub
+      } else if (!host.includes(PLATFORM_HOST) && !isLocalDevHost(host)) {
         tenantIdentifier = stripWww(host)
         isCustomDomain = true
-      } else {
-        const pathParts = url.pathname.split('/').filter(Boolean)
-        if (pathParts.length >= 2 && pathParts[1] === 'admin') {
-          tenantIdentifier = pathParts[0]
-        }
       }
     }
 
-    if (tenantIdentifier) {
+    if (tenantIdentifier && !RESERVED_SUBDOMAINS.has(tenantIdentifier)) {
       headers.set('x-tenant-identifier', tenantIdentifier)
       headers.set('x-tenant-type', 'merchant-admin')
       if (isCustomDomain) {
@@ -110,7 +132,6 @@ export function middleware(request: NextRequest) {
       }
     }
 
-    // admin.customdomain.com/ → rewrite to /admin (no cross-host redirect)
     if (isAdminSubdomain && (url.pathname === '/' || url.pathname === '')) {
       url.pathname = '/admin'
       return NextResponse.rewrite(url, { request: { headers } })
@@ -119,23 +140,17 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(url, { request: { headers } })
   }
 
-  // 3. Storefront: subdomain, path, veya custom domain (no redirect off custom domain)
+  // 4. Storefront: tenant subdomain or custom domain (never apex)
   let tenantIdentifier: string | null = null
   let isCustomDomain = false
 
-  if (!host.includes(PLATFORM_HOST) && !isPlatformApex(host)) {
+  if (!host.includes(PLATFORM_HOST) && !isLocalDevHost(host)) {
     tenantIdentifier = stripWww(host)
     isCustomDomain = true
-  } else if (host.endsWith(`.${PLATFORM_HOST}`) && !isPlatformApex(host)) {
-    const sub = host.slice(0, -(`.${PLATFORM_HOST}`.length))
-    if (sub && sub !== 'www' && sub !== 'admin' && sub !== 'panel') {
-      tenantIdentifier = sub.split('.')[0]
-    }
-  } else if (url.pathname.startsWith('/') && url.pathname.split('/').length >= 2) {
-    const pathParts = url.pathname.split('/').filter(Boolean)
-    if (pathParts.length >= 1 && pathParts[0] !== 'api' && pathParts[0] !== '_next') {
-      tenantIdentifier = pathParts[0]
-      headers.set('x-tenant-path-based', 'true')
+  } else {
+    const sub = platformSubdomain(host)
+    if (sub && !RESERVED_SUBDOMAINS.has(sub)) {
+      tenantIdentifier = sub
     }
   }
 

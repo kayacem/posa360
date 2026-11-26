@@ -50,12 +50,26 @@ test.describe('Custom domain host resolution', () => {
     )
     expect(admin.status()).toBe(200)
 
-    const platform = await request.get(
-      'http://localhost:43210/api/internal/domain-check?domain=shopmagaza.localhost'
+    const storeSub = await request.get(
+      'http://localhost:43210/api/internal/domain-check?domain=shopmagaza.posa360.com'
     )
-    // platform subdomain of localhost — treated as platform host suffix when PLATFORM is localhost:43210
-    // For NEXT_PUBLIC_PLATFORM_DOMAIN=localhost:43210, host ends with localhost → 200
-    expect([200, 404]).toContain(platform.status())
+    expect(storeSub.status()).toBe(200)
+
+    const appSub = await request.get(
+      'http://localhost:43210/api/internal/domain-check?domain=app.posa360.com'
+    )
+    expect(appSub.status()).toBe(200)
+
+    // Apex / www are marketing — must NOT be claimed
+    const apex = await request.get(
+      'http://localhost:43210/api/internal/domain-check?domain=posa360.com'
+    )
+    expect(apex.status()).toBe(404)
+
+    const www = await request.get(
+      'http://localhost:43210/api/internal/domain-check?domain=www.posa360.com'
+    )
+    expect(www.status()).toBe(404)
 
     const unknown = await request.get(
       'http://localhost:43210/api/internal/domain-check?domain=not-a-real-shop-xyz.com'
@@ -67,5 +81,13 @@ test.describe('Custom domain host resolution', () => {
     await page.goto('http://shopmagaza.localhost:43210/', { waitUntil: 'networkidle' })
     const body = await page.textContent('body')
     expect(body).toContain('Shop Mağaza')
+  })
+
+  test('app hub kayit page loads on localhost (app.posa360.com/kayit)', async ({ page }) => {
+    await page.goto('http://localhost:43210/kayit', { waitUntil: 'domcontentloaded' })
+    await checkForErrors(page, 'kayit page')
+    const body = await page.textContent('body')
+    expect(body).toMatch(/Mağaza Kaydı|Kayıt Ol/)
+    expect(page.url()).toContain('/kayit')
   })
 })

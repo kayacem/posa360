@@ -87,6 +87,13 @@ export default function LoginPage() {
               {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
             </Button>
 
+            <p className="text-center text-sm text-gray-600">
+              Yeni mağaza mı?{' '}
+              <a href="/kayit" className="underline">
+                app üzerinden kayıt olun
+              </a>
+            </p>
+
             <div className="mt-6 p-4 bg-blue-50 rounded-lg text-sm">
               <p className="font-semibold mb-2">Demo Hesaplar:</p>
               <p>Super Admin: admin@posa360.com / admin123</p>

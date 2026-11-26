@@ -7,9 +7,18 @@
 	}
 }
 
-# Platform + all hostnames via On-Demand TLS (per-host certs, no DNS plugin needed).
-# Note: this does NOT issue a single wildcard cert; each subdomain gets its own cert.
-posa360.com, *.posa360.com, https:// {
+# IMPORTANT: Do NOT claim posa360.com or www — marketing site lives on apex elsewhere.
+# Per-host certs for platform subdomains (app, admin, stores). Not a single wildcard cert.
+*.posa360.com {
+	tls {
+		on_demand
+	}
+	encode gzip
+	reverse_proxy app:3000
+}
+
+# Merchant custom domains (ask endpoint rejects platform apex/www)
+https:// {
 	tls {
 		on_demand
 	}
