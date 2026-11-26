@@ -35,7 +35,11 @@ export default function LoginPage() {
       
       if (session?.user?.role === 'SUPER_ADMIN') {
         router.push('/super-admin')
-      } else if (session?.user?.role === 'TENANT_OWNER' || session?.user?.role === 'TENANT_ADMIN') {
+      } else if (
+        session?.user?.role === 'TENANT_OWNER' ||
+        session?.user?.role === 'TENANT_ADMIN' ||
+        session?.user?.role === 'TENANT_STAFF'
+      ) {
         router.push('/admin')
       } else {
         router.push('/')
@@ -82,6 +86,13 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
             </Button>
+
+            <p className="text-center text-sm text-gray-600">
+              Yeni mağaza mı?{' '}
+              <a href="/kayit" className="underline">
+                app üzerinden kayıt olun
+              </a>
+            </p>
 
             <div className="mt-6 p-4 bg-blue-50 rounded-lg text-sm">
               <p className="font-semibold mb-2">Demo Hesaplar:</p>

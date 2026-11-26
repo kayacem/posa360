@@ -3,6 +3,9 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Merchant Flows', () => {
   test.use({ storageState: './tests/.auth/merchant.json' })
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'merchant', 'Merchant flows only on merchant project')
+  })
   
   test('merchant can view orders', async ({ page }) => {
     await page.goto('http://shopmagaza.localhost:43210/admin/orders')
@@ -55,8 +58,10 @@ test.describe('Merchant Flows', () => {
         const href = await invoiceLink.first().getAttribute('href')
         expect(href).toBeTruthy()
         
-        // Try to fetch the PDF
-        const response = await page.request.get(href!)
+        const absolute = href!.startsWith('http')
+          ? href!
+          : ('http://shopmagaza.localhost:43210' + (href!.startsWith('/') ? href! : '/' + href!))
+        const response = await page.request.get(absolute)
         expect(response.status()).toBe(200)
         const contentType = response.headers()['content-type']
         expect(contentType).toContain('pdf')
@@ -66,7 +71,7 @@ test.describe('Merchant Flows', () => {
   
   test('merchant tenant A cannot access tenant B orders', async ({ page }) => {
     // Try to access tenant 2 order directly
-    await page.goto('http://shopcem.local:43210/admin/orders')
+    await page.goto('http://elektronikdunya.localhost:43210/admin/orders')
     await page.waitForTimeout(1500)
     
     // Should either be forbidden, redirected, or show no data
@@ -118,6 +123,9 @@ test.describe('Merchant Flows', () => {
 
 test.describe('Admin Flows', () => {
   test.use({ storageState: './tests/.auth/admin.json' })
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'admin', 'Admin flows only on admin project')
+  })
   
   test('super admin can view tenants', async ({ page }) => {
     await page.goto('http://localhost:43210/super-admin/tenants')
@@ -143,7 +151,7 @@ test.describe('Public Flows', () => {
   })
   
   test('custom domain resolves to tenant 2', async ({ page }) => {
-    await page.goto('http://shopcem.local:43210')
+    await page.goto('http://elektronikdunya.localhost:43210')
     await page.waitForTimeout(1000)
     
     const bodyText = await page.textContent('body')
@@ -156,7 +164,7 @@ test.describe('Public Flows', () => {
     await page.waitForTimeout(500)
     const html1 = await page.content()
     
-    await page.goto('http://shopcem.local:43210')
+    await page.goto('http://elektronikdunya.localhost:43210')
     await page.waitForTimeout(500)
     const html2 = await page.content()
     

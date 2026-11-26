@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
+import { computeOrderTotals } from '@/lib/order-totals'
 import type { TenantContext } from '@/lib/tenant'
 import type { Cart } from '@/lib/cart'
 
@@ -44,9 +45,11 @@ export function CheckoutForm({ tenant, cart }: CheckoutFormProps) {
     paymentMethod: 'mock_card',
   })
 
-  const shippingCost = cart.subtotal >= 500 ? 0 : 29.90
-  const taxAmount = cart.subtotal * 0.20 // KDV %20
-  const total = cart.subtotal + shippingCost + taxAmount
+  const totals = computeOrderTotals(
+    cart.items.map((i) => ({ price: i.price, quantity: i.quantity })),
+    { taxRate: tenant.settings?.taxRate ?? 0.2 }
+  )
+  const { shippingCost, taxAmount, total, subtotal, discountAmount } = totals
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -60,9 +63,10 @@ export function CheckoutForm({ tenant, cart }: CheckoutFormProps) {
         body: JSON.stringify({
           ...formData,
           items: cart.items,
-          subtotal: cart.subtotal,
+          subtotal,
           shippingCost,
           taxAmount,
+          discountAmount,
           total,
         }),
       })
@@ -266,7 +270,7 @@ export function CheckoutForm({ tenant, cart }: CheckoutFormProps) {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span>Ara Toplam</span>
-                <span>{formatCurrency(cart.subtotal, tenant.settings.currency)}</span>
+                <span>{formatCurrency(subtotal, tenant.settings.currency)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Kargo</span>
@@ -279,7 +283,7 @@ export function CheckoutForm({ tenant, cart }: CheckoutFormProps) {
                 </span>
               </div>
               <div className="flex justify-between text-sm text-gray-600">
-                <span>KDV (%20)</span>
+                <span>KDV (%{Math.round((tenant.settings.taxRate ?? 0.2) * 100)})</span>
                 <span>{formatCurrency(taxAmount, tenant.settings.currency)}</span>
               </div>
             </div>

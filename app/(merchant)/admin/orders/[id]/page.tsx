@@ -4,12 +4,14 @@ import { notFound } from 'next/navigation'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { OrderStatusManager } from '@/components/merchant/OrderStatusManager'
+import { parseOrderAddress } from '@/lib/order-address'
 
 export default async function OrderDetailPage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
+  const { id } = await params
   const tenantContext = await getTenantContext()
 
   if (!tenantContext) {
@@ -18,7 +20,7 @@ export default async function OrderDetailPage({
 
   const order = await prisma.order.findFirst({
     where: {
-      id: params.id,
+      id,
       tenantId: tenantContext.id,
     },
     include: {
@@ -37,17 +39,8 @@ export default async function OrderDetailPage({
     notFound()
   }
 
-  // Parse JSON addresses
-  type Address = {
-    line1?: string
-    line2?: string
-    district?: string
-    city?: string
-    postalCode?: string
-    country?: string
-  }
-  const shippingAddress: Address | null = order.shippingAddress ? JSON.parse(order.shippingAddress) : null
-  const billingAddress: Address | null = order.billingAddress ? JSON.parse(order.billingAddress) : null
+  const shippingAddress = parseOrderAddress(order.shippingAddress)
+  const billingAddress = parseOrderAddress(order.billingAddress)
 
   const statusColors: Record<string, string> = {
     PENDING: 'bg-yellow-100 text-yellow-800',
@@ -228,13 +221,15 @@ export default async function OrderDetailPage({
             </CardHeader>
             <CardContent>
               <div className="text-sm space-y-1">
+                {shippingAddress?.fullName && <div className="font-medium">{shippingAddress.fullName}</div>}
                 <div>{shippingAddress?.line1}</div>
                 {shippingAddress?.line2 && <div>{shippingAddress.line2}</div>}
                 <div>
-                  {shippingAddress?.district}, {shippingAddress?.city}
+                  {[shippingAddress?.district, shippingAddress?.city].filter(Boolean).join(', ')}
                 </div>
                 <div>{shippingAddress?.postalCode}</div>
                 <div>{shippingAddress?.country}</div>
+                {shippingAddress?.phone && <div>{shippingAddress.phone}</div>}
               </div>
             </CardContent>
           </Card>
@@ -246,10 +241,11 @@ export default async function OrderDetailPage({
               </CardHeader>
               <CardContent>
                 <div className="text-sm space-y-1">
+                  {billingAddress.fullName && <div className="font-medium">{billingAddress.fullName}</div>}
                   <div>{billingAddress.line1}</div>
                   {billingAddress.line2 && <div>{billingAddress.line2}</div>}
                   <div>
-                    {billingAddress.district}, {billingAddress.city}
+                    {[billingAddress.district, billingAddress.city].filter(Boolean).join(', ')}
                   </div>
                   <div>{billingAddress.postalCode}</div>
                   <div>{billingAddress.country}</div>

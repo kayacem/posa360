@@ -85,6 +85,7 @@ model Tenant {
   nextPaymentDue    DateTime?
   
   logoUrl       String?
+  bannerUrl     String?
   primaryColor  String   @default("#000000")
   secondaryColor String  @default("#ffffff")
   
@@ -96,6 +97,13 @@ model Tenant {
   maxProducts   Int      @default(100)
   maxOrders     Int      @default(1000)
   maxStaff      Int      @default(5)
+
+  /// When set, tenant is in trial until this date
+  trialEndsAt   DateTime?
+  billingInterval String @default("monthly") // monthly | yearly
+
+  /// SSL for {slug}.posa360.com — pending | issued | failed (certbot HTTP-01 cron)
+  platformSslStatus String @default("pending")
   
   notes         String?
   
@@ -117,7 +125,43 @@ model Tenant {
   auditLogs     AuditLog[]
   domainVerifications DomainVerification[]
   returns       Return[]
-  subscriptionPayments SubscriptionPayment[]
+  tenantPayments TenantPayment[]
+}
+
+/// SaaS pricing plans (editable in super admin). Prices are placeholders until owner sets live rates.
+model Plan {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  name          String
+  description   String   @default("")
+  monthlyPrice  Float
+  yearlyPrice   Float
+  /// JSON string array of feature labels
+  features      String
+  maxProducts   Int      @default(100)
+  maxOrders     Int      @default(1000)
+  maxStaff      Int      @default(5)
+  highlighted   Boolean  @default(false)
+  sortOrder     Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Lead {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  company   String?
+  message   String
+  source    String?  @default("iletisim")
+  status    String   @default("NEW") // NEW | CONTACTED | CLOSED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model User {
@@ -681,30 +725,26 @@ model DomainVerification {
   @@index([tenantId])
 }
 
-model SubscriptionPayment {
+model TenantPayment {
   id          String   @id @default(cuid())
   tenantId    String
   
+  /// Billing period label, e.g. "2026-01"
+  period      String
   amount      Float
   currency    String   @default("TRY")
   
   status      PaymentStatusEnum @default(PENDING)
-  
-  periodStart DateTime
-  periodEnd   DateTime
-  
   paidAt      DateTime?
   dueDate     DateTime
   
-  paymentMethod String?
-  
-  invoiceNumber String?
-  notes         String?
+  notes       String?
   
   createdAt   DateTime @default(now())
   
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   
+  @@unique([tenantId, period])
   @@index([tenantId])
   @@index([status])
 }

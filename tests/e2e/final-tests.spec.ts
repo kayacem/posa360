@@ -11,7 +11,7 @@ test.describe('Core Flows', () => {
   })
   
   test('custom domain resolves to tenant 2', async ({ page }) => {
-    await page.goto('http://shopcem.local:43210')
+    await page.goto('http://elektronikdunya.localhost:43210')
     await page.waitForTimeout(1000)
     
     const content = await page.textContent('body')
@@ -23,7 +23,7 @@ test.describe('Core Flows', () => {
     await page.waitForTimeout(500)
     const html1 = await page.content()
     
-    await page.goto('http://shopcem.local:43210')
+    await page.goto('http://elektronikdunya.localhost:43210')
     await page.waitForTimeout(500)
     const html2 = await page.content()
     

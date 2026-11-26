@@ -13,36 +13,65 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [
-    {
-      name: 'setup',
-      testMatch: /global-setup\.ts/,
-    },
+    // Authenticated merchant flows
     {
       name: 'merchant',
-      use: { 
+      testMatch: [
+        '**/merchant-authenticated.spec.ts',
+        '**/authenticated-flows.spec.ts',
+        '**/working-flows.spec.ts',
+        '**/comprehensive-flow.spec.ts',
+        '**/cross-tenant-isolation.spec.ts',
+        '**/features-crm-staff-branding.spec.ts',
+        '**/screenshots.spec.ts',
+      ],
+      use: {
         ...devices['Desktop Chrome'],
         storageState: './tests/.auth/merchant.json',
       },
-      dependencies: ['setup'],
     },
+    // Authenticated super-admin flows
     {
       name: 'admin',
-      use: { 
+      testMatch: [
+        '**/admin-authenticated.spec.ts',
+        '**/authenticated-flows.spec.ts',
+        '**/features-crm-staff-branding.spec.ts',
+        '**/screenshots.spec.ts',
+      ],
+      use: {
         ...devices['Desktop Chrome'],
         storageState: './tests/.auth/admin.json',
       },
-      dependencies: ['setup'],
     },
+    // Customer-authenticated flows
     {
       name: 'customer',
-      use: { 
+      testMatch: [
+        '**/order-flow.spec.ts',
+        '**/basic-flow.spec.ts',
+        '**/working-flows.spec.ts',
+      ],
+      use: {
         ...devices['Desktop Chrome'],
         storageState: './tests/.auth/customer.json',
       },
-      dependencies: ['setup'],
     },
+    // Unauthenticated / public checks (incl. "requires auth" redirects)
     {
       name: 'public',
+      testMatch: [
+        '**/public.spec.ts',
+        '**/tenant-resolution.spec.ts',
+        '**/host-resolution-custom-domain.spec.ts',
+        '**/marketing-site.spec.ts',
+        '**/final-tests.spec.ts',
+        '**/final-working-tests.spec.ts',
+        '**/basic-flow.spec.ts',
+        '**/cross-tenant-isolation.spec.ts',
+        '**/validated-flows.spec.ts',
+        '**/screenshots.spec.ts',
+      ],
       use: { ...devices['Desktop Chrome'] },
     },
   ],

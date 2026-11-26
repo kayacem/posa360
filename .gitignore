@@ -32,6 +32,12 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.production.example
+!.env.example
+
+# production backups
+/backups/
+*.sql.gz
 
 # vercel
 .vercel
@@ -44,3 +50,5 @@ dist/
 .env
 
 /src/generated/prisma
+test-results/
+tests/.auth/

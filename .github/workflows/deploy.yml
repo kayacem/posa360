@@ -1,0 +1,115 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-eticaret-production
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "22"
+  APP_ROOT: /opt/posa/apps/eticaret
+  NEXT_PUBLIC_PLATFORM_DOMAIN: posa360.com
+  NEXT_PUBLIC_HUB_SUBDOMAIN: eticaret
+  NEXT_PUBLIC_APP_URL: https://eticaret.posa360.com
+  NEXT_PUBLIC_MARKETING_URL: https://eticaret.posa360.com
+
+jobs:
+  test-and-build:
+    name: Typecheck, unit tests, build standalone
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Build Next.js standalone
+        run: npm run build
+        env:
+          # Build-time public URLs (no secrets)
+          NEXT_PUBLIC_PLATFORM_DOMAIN: ${{ env.NEXT_PUBLIC_PLATFORM_DOMAIN }}
+          NEXT_PUBLIC_HUB_SUBDOMAIN: ${{ env.NEXT_PUBLIC_HUB_SUBDOMAIN }}
+          NEXT_PUBLIC_APP_URL: ${{ env.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_MARKETING_URL: ${{ env.NEXT_PUBLIC_MARKETING_URL }}
+          # Dummy DATABASE_URL so any import-time checks don't fail (migrate runs on server)
+          DATABASE_URL: postgresql://build:build@127.0.0.1:5432/build?schema=public
+          NEXTAUTH_SECRET: build-time-placeholder-secret-32chars
+          AUTH_TRUST_HOST: "true"
+
+      - name: Package release artifact
+        run: |
+          chmod +x deploy/scripts/package-release.sh
+          ./deploy/scripts/package-release.sh release-out
+          echo "${{ github.sha }}" > release-out/REVISION
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: posa-eticaret-release
+          path: release-out
+          retention-days: 7
+
+  deploy:
+    name: Rsync release + activate on VPS
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: posa-eticaret-release
+          path: release-out
+
+      - name: Setup SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Rsync release to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          REMOTE="${VPS_USER}@${VPS_HOST}"
+          SHA="${{ github.sha }}"
+          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new "$REMOTE" \
+            "mkdir -p ${{ env.APP_ROOT }}/releases/${SHA}"
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new" \
+            release-out/ \
+            "$REMOTE:${{ env.APP_ROOT }}/releases/${SHA}/"
+
+      - name: Activate release (migrate, restart, health, prune)
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          SHA="${{ github.sha }}"
+          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new \
+            "${VPS_USER}@${VPS_HOST}" \
+            "chmod +x ${{ env.APP_ROOT }}/releases/${SHA}/deploy/scripts/activate-release.sh && \
+             ${{ env.APP_ROOT }}/releases/${SHA}/deploy/scripts/activate-release.sh ${SHA}"

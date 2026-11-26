@@ -3,8 +3,8 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Basic Platform Functionality', () => {
   test('homepage loads', async ({ page }) => {
-    await page.goto('http://localhost:43210/super-admin/tenants')
-    await expect(page.locator('body')).toContainText('Tenant')
+    await page.goto('http://localhost:43210/')
+    await expect(page.locator('body')).toContainText('POSA360')
   })
 
   test('login page works', async ({ page }) => {
@@ -15,5 +15,6 @@ test.describe('Basic Platform Functionality', () => {
   test('storefront loads', async ({ page }) => {
     await page.goto('http://shopmagaza.localhost:43210')
     await expect(page.locator('body')).toBeVisible()
+    await expect(page.locator('body')).toContainText('Shop Mağaza')
   })
 })

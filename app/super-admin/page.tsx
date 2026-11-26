@@ -31,6 +31,15 @@ export default async function SuperAdminDashboard() {
               </span>
             </div>
             <div className="flex items-center space-x-4">
+              <Link href="/super-admin/tenants" className="text-sm text-gray-700 hover:underline">
+                Tenantlar
+              </Link>
+              <Link href="/super-admin/plans" className="text-sm text-gray-700 hover:underline">
+                Planlar
+              </Link>
+              <Link href="/super-admin/leads" className="text-sm text-gray-700 hover:underline">
+                Lead’ler
+              </Link>
               <span className="text-sm text-gray-700">Cem Kaya</span>
               <Button variant="outline" size="sm">
                 Çıkış

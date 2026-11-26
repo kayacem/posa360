@@ -47,14 +47,18 @@ test.describe('Merchant Authenticated Flows', () => {
     // Should be on order detail
     expect(page.url()).toContain('/admin/orders/')
     
-    // Check invoice PDF link
+    // Check invoice PDF link — must hit tenant host so auth cookies apply
     const invoiceLink = page.locator('a[href*="invoice"]')
     if (await invoiceLink.count() > 0) {
       const href = await invoiceLink.first().getAttribute('href')
       expect(href).toBeTruthy()
-      
-      // Fetch PDF and verify content-type
-      const response = await page.request.get(href!)
+
+      const absolute =
+        href!.startsWith('http')
+          ? href!
+          : `http://shopmagaza.localhost:43210${href!.startsWith('/') ? '' : '/'}${href}`
+
+      const response = await page.request.get(absolute)
       expect(response.status()).toBe(200)
       const contentType = response.headers()['content-type']
       expect(contentType).toContain('pdf')
@@ -63,7 +67,7 @@ test.describe('Merchant Authenticated Flows', () => {
   
   test('merchant cannot access tenant B orders', async ({ page }) => {
     // Merchant A trying to access tenant B
-    await page.goto('http://shopcem.local:43210/admin/orders')
+    await page.goto('http://elektronikdunya.localhost:43210/admin/orders')
     await page.waitForTimeout(1500)
     
     const url = page.url()

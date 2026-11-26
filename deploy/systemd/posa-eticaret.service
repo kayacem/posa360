@@ -1,0 +1,36 @@
+[Unit]
+Description=POSA E-ticaret (POSA360) Next.js on :3030
+Documentation=file:///opt/posa/apps/eticaret/current
+After=network.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=posa
+Group=posa
+WorkingDirectory=/opt/posa/apps/eticaret/current
+EnvironmentFile=/opt/posa/apps/eticaret/.env
+Environment=NODE_ENV=production
+Environment=PORT=3030
+# Must be 0.0.0.0, not 127.0.0.1: Next normalizes 127.0.0.1 -> "localhost" inside
+# middleware, so every NextResponse.rewrite() looks cross-origin and gets proxied to
+# http://localhost:3030 (resolves to ::1) -> 500. Port 3030 is closed to the outside
+# by the ExecStartPre firewall rules below (nginx reaches it via loopback).
+Environment=HOSTNAME=0.0.0.0
+ExecStartPre=+/bin/sh -c 'iptables -C INPUT -p tcp --dport 3030 ! -i lo -j DROP 2>/dev/null || iptables -I INPUT -p tcp --dport 3030 ! -i lo -j DROP'
+ExecStartPre=+/bin/sh -c 'ip6tables -C INPUT -p tcp --dport 3030 ! -i lo -j DROP 2>/dev/null || ip6tables -I INPUT -p tcp --dport 3030 ! -i lo -j DROP'
+Environment=NODE_OPTIONS=--max-old-space-size=512
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+# Soft memory limit (2 GB shared box)
+MemoryMax=768M
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=posa-eticaret
+
+[Install]
+WantedBy=multi-user.target

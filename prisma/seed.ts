@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcrypt'
+import { buildOrderAddressSnapshot } from '../src/lib/order-address'
+import { computeOrderTotals } from '../src/lib/order-totals'
 
 const prisma = new PrismaClient()
 
@@ -7,11 +9,20 @@ async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10)
 }
 
+function monthsAgo(n: number): Date {
+  const d = new Date()
+  d.setMonth(d.getMonth() - n)
+  return d
+}
+
+function periodLabel(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 async function main() {
   console.log('🌱 Seeding database...')
 
-  // Super Admin
-  const superAdmin = await prisma.user.create({
+  await prisma.user.create({
     data: {
       email: 'admin@posa360.com',
       name: 'Cem Kaya',
@@ -21,16 +32,106 @@ async function main() {
   })
   console.log('✅ Super admin created')
 
-  // Tenant 1: Shop Mağaza
+  // NOTE: Plan prices below are PLACEHOLDERS — owner will set real live prices in super admin.
+  // Yearly ≈ 20% off (monthly * 12 * 0.8).
+  await prisma.plan.createMany({
+    data: [
+      {
+        slug: 'baslangic',
+        name: 'Başlangıç',
+        description: 'Yeni mağazalar için sade başlangıç.',
+        monthlyPrice: 990,
+        yearlyPrice: 9504, // 990*12*0.8
+        features: JSON.stringify([
+          'Kendi subdomain',
+          'Sipariş & iade yönetimi',
+          'iyzico / havale',
+          'CSV ürün yükleme',
+          'Temel tema',
+        ]),
+        maxProducts: 100,
+        maxOrders: 1000,
+        maxStaff: 2,
+        highlighted: false,
+        sortOrder: 1,
+      },
+      {
+        slug: 'profesyonel',
+        name: 'Profesyonel',
+        description: 'Büyüyen markalar için tam operasyon.',
+        monthlyPrice: 1990,
+        yearlyPrice: 19104, // 1990*12*0.8
+        features: JSON.stringify([
+          'Özel domain',
+          'Sipariş–iade–kargo tek panel',
+          'iyzico / PayTR / kapıda',
+          'Yurtiçi / Aras / MNG / Sürat / PTT',
+          'Personel yetkileri',
+          'Tema düzenleyici',
+          'CSV toplu yükleme',
+        ]),
+        maxProducts: 2000,
+        maxOrders: 20000,
+        maxStaff: 10,
+        highlighted: true,
+        sortOrder: 2,
+      },
+      {
+        slug: 'kurumsal',
+        name: 'Kurumsal',
+        description: 'Yüksek hacim ve ekip için.',
+        monthlyPrice: 3990,
+        yearlyPrice: 38304, // 3990*12*0.8
+        features: JSON.stringify([
+          'Profesyonel’deki her şey',
+          'Öncelikli destek',
+          'Yüksek limitler',
+          'Çoklu personel',
+          'Gelişmiş raporlar',
+        ]),
+        maxProducts: 20000,
+        maxOrders: 200000,
+        maxStaff: 50,
+        highlighted: false,
+        sortOrder: 3,
+      },
+    ],
+  })
+  console.log('✅ Plans seeded (placeholder prices — owner will update)')
+
+  const tenant1CreatedAt = monthsAgo(8)
   const tenant1 = await prisma.tenant.create({
     data: {
       name: 'Shop Mağaza',
       slug: 'shopmagaza',
       status: 'ACTIVE',
+      plan: 'profesyonel',
+      companyName: 'Shop Mağaza Ticaret A.Ş.',
+      contactPerson: 'Ahmet Yılmaz',
+      contactEmail: 'ahmet@shopmagaza.com',
+      contactPhone: '0212 555 0101',
+      taxNumber: '1234567890',
+      address: 'Caferağa Mah. Moda Cad. No:12 Kadıköy/İstanbul',
+      monthlyFee: 1990,
+      maxProducts: 2000,
+      maxStaff: 10,
+      lastPaymentDate: monthsAgo(0),
+      lastPaymentStatus: 'PAID',
+      nextPaymentDue: (() => {
+        const d = new Date()
+        d.setMonth(d.getMonth() + 1)
+        d.setDate(1)
+        return d
+      })(),
+      primaryColor: '#0f766e',
+      secondaryColor: '#ffffff',
+      bannerUrl: null,
+      platformSslStatus: 'issued',
+      createdAt: tenant1CreatedAt,
     },
   })
 
-  const merchant1 = await prisma.user.create({
+  await prisma.user.create({
     data: {
       email: 'ahmet@shopmagaza.com',
       name: 'Ahmet Yılmaz',
@@ -40,21 +141,57 @@ async function main() {
         create: {
           tenantId: tenant1.id,
           role: 'TENANT_OWNER',
+          permissions: ['orders', 'products', 'settings', 'staff'],
         },
       },
     },
   })
 
-  // Tenant 2: Elektronik Dünya
-  const tenant2 = await prisma.tenant.create({
+  // Staff user for tenant 1
+  await prisma.user.create({
     data: {
-      name: 'Elektronik Dünya',
-      slug: 'elektronikdunya',
-      status: 'ACTIVE',
+      email: 'staff@shopmagaza.com',
+      name: 'Zeynep Staff',
+      password: await hashPassword('staff123'),
+      role: 'TENANT_STAFF',
+      tenantUsers: {
+        create: {
+          tenantId: tenant1.id,
+          role: 'TENANT_STAFF',
+          permissions: ['orders', 'products'],
+        },
+      },
     },
   })
 
-  const merchant2 = await prisma.user.create({
+  const tenant2CreatedAt = monthsAgo(5)
+  const tenant2 = await prisma.tenant.create({
+    data: {
+      name: 'Elektronik Dünyası',
+      slug: 'elektronikdunya',
+      customDomain: 'shopcem.local',
+      status: 'ACTIVE',
+      plan: 'baslangic',
+      companyName: 'Elektronik Dünyası Ltd. Şti.',
+      contactPerson: 'Mehmet Demir',
+      contactEmail: 'mehmet@elektronikdunya.com',
+      contactPhone: '0216 444 0202',
+      taxNumber: '9876543210',
+      address: 'Levent Mah. Büyükdere Cad. No:45 Beşiktaş/İstanbul',
+      monthlyFee: 990,
+      maxProducts: 100,
+      maxStaff: 2,
+      lastPaymentDate: monthsAgo(1),
+      lastPaymentStatus: 'OVERDUE',
+      nextPaymentDue: monthsAgo(0),
+      primaryColor: '#1d4ed8',
+      secondaryColor: '#ffffff',
+      platformSslStatus: 'issued',
+      createdAt: tenant2CreatedAt,
+    },
+  })
+
+  await prisma.user.create({
     data: {
       email: 'mehmet@elektronikdunya.com',
       name: 'Mehmet Demir',
@@ -64,13 +201,59 @@ async function main() {
         create: {
           tenantId: tenant2.id,
           role: 'TENANT_OWNER',
+          permissions: ['orders', 'products', 'settings', 'staff'],
         },
       },
     },
   })
-  console.log('✅ 2 tenants and merchants created')
 
-  // Customers (separate Customer model, not User)
+  await prisma.domainVerification.create({
+    data: {
+      tenantId: tenant2.id,
+      domain: 'shopcem.local',
+      verificationToken: 'posa360-verify-seed-shopcem-local',
+      isVerified: true,
+      verifiedAt: new Date(),
+      sslStatus: 'active',
+      requiredRecords: JSON.stringify([
+        { type: 'TXT', host: '_posa360-verification.shopcem.local', value: 'posa360-verify-seed-shopcem-local' },
+      ]),
+    },
+  })
+  console.log('✅ 2 tenants, owners, staff, and verified custom domain created')
+
+  // Tenant payments (last 6 months each)
+  for (const tenant of [
+    { t: tenant1, fee: 1990, created: tenant1CreatedAt },
+    { t: tenant2, fee: 990, created: tenant2CreatedAt },
+  ]) {
+    for (let m = 5; m >= 0; m--) {
+      const periodDate = monthsAgo(m)
+      const period = periodLabel(periodDate)
+      const dueDate = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 5)
+      const isCurrent = m === 0
+      const isOverdueTenant2 = tenant.t.id === tenant2.id && m === 0
+      const status = isOverdueTenant2
+        ? 'OVERDUE'
+        : m === 0 && tenant.t.id === tenant1.id
+          ? 'PAID'
+          : m > 0
+            ? 'PAID'
+            : 'PENDING'
+      await prisma.tenantPayment.create({
+        data: {
+          tenantId: tenant.t.id,
+          period,
+          amount: tenant.fee,
+          status: status as 'PAID' | 'PENDING' | 'OVERDUE',
+          dueDate,
+          paidAt: status === 'PAID' ? new Date(dueDate.getTime() - 2 * 86400000) : null,
+        },
+      })
+    }
+  }
+  console.log('✅ TenantPayment history created')
+
   const customer1 = await prisma.customer.create({
     data: {
       tenantId: tenant1.id,
@@ -90,9 +273,7 @@ async function main() {
       phone: '5559876543',
     },
   })
-  console.log('✅ 2 customers created')
 
-  // Products for Tenant 1
   const product1 = await prisma.product.create({
     data: {
       tenantId: tenant1.id,
@@ -102,6 +283,7 @@ async function main() {
       price: 199.99,
       stock: 100,
       isActive: true,
+      isFeatured: true,
     },
   })
 
@@ -138,6 +320,7 @@ async function main() {
       price: 349.99,
       stock: 50,
       isActive: true,
+      isFeatured: true,
     },
   })
 
@@ -153,7 +336,6 @@ async function main() {
     },
   })
 
-  // Products for Tenant 2
   const product3 = await prisma.product.create({
     data: {
       tenantId: tenant2.id,
@@ -163,6 +345,7 @@ async function main() {
       price: 149.99,
       stock: 75,
       isActive: true,
+      isFeatured: true,
     },
   })
 
@@ -187,6 +370,7 @@ async function main() {
       price: 899.99,
       stock: 30,
       isActive: true,
+      isFeatured: true,
     },
   })
 
@@ -203,60 +387,90 @@ async function main() {
   })
   console.log('✅ 4 products with variants created')
 
-  // 6 Orders for Tenant 1
-  for (let i = 1; i <= 6; i++) {
-    const customer = i % 2 === 0 ? customer1 : customer2
+  async function createOrder(opts: {
+    tenantId: string
+    customer: { id: string; email: string; firstName: string; lastName: string; phone: string | null }
+    orderNumber: string
+    status: 'DELIVERED' | 'SHIPPED' | 'PREPARING' | 'CONFIRMED'
+    productId: string
+    productName: string
+    variantName: string
+    price: number
+    daysAgo: number
+    address: { line1: string; line2: string; district: string; city: string; postalCode: string }
+  }) {
+    const quantity = 1
+    const totals = computeOrderTotals([{ price: opts.price, quantity }])
+    const createdAt = new Date(Date.now() - opts.daysAgo * 86400000)
+    const addressJson = buildOrderAddressSnapshot({
+      firstName: opts.customer.firstName,
+      lastName: opts.customer.lastName,
+      phone: opts.customer.phone || undefined,
+      line1: opts.address.line1,
+      line2: opts.address.line2,
+      district: opts.address.district,
+      city: opts.address.city,
+      postalCode: opts.address.postalCode,
+      country: 'Türkiye',
+    })
+
     const order = await prisma.order.create({
       data: {
-        tenantId: tenant1.id,
-        customerId: customer.id,
-        customerEmail: customer.email,
-        customerName: `${customer.firstName} ${customer.lastName}`,
-        orderNumber: `ORD-T1-${String(i).padStart(3, '0')}`,
-        status: i === 1 ? 'DELIVERED' : i === 2 ? 'SHIPPED' : i === 3 ? 'PREPARING' : 'CONFIRMED',
-        total: 199.99 + (i * 10),
-        subtotal: 199.99 + (i * 10),
-        taxAmount: 0,
-        shippingCost: 0,
-        shippingAddress: JSON.stringify({
-          firstName: i % 2 === 0 ? 'Ayşe' : 'Ali',
-          lastName: i % 2 === 0 ? 'Yıldız' : 'Kaya',
-          addressLine1: `Test Sokak No:${i}`,
-          addressLine2: `Daire ${i}`,
-          ilce: 'Kadıköy',
-          il: 'İstanbul',
-          postalCode: '34000',
-          country: 'Türkiye',
-          phone: '5551234567',
-        }),
-        billingAddress: JSON.stringify({
-          firstName: i % 2 === 0 ? 'Ayşe' : 'Ali',
-          lastName: i % 2 === 0 ? 'Yıldız' : 'Kaya',
-          addressLine1: `Test Sokak No:${i}`,
-          addressLine2: `Daire ${i}`,
-          ilce: 'Kadıköy',
-          il: 'İstanbul',
-          postalCode: '34000',
-          country: 'Türkiye',
-          phone: '5551234567',
-        }),
+        tenantId: opts.tenantId,
+        customerId: opts.customer.id,
+        customerEmail: opts.customer.email,
+        customerName: `${opts.customer.firstName} ${opts.customer.lastName}`,
+        customerPhone: opts.customer.phone,
+        orderNumber: opts.orderNumber,
+        status: opts.status,
+        subtotal: totals.subtotal,
+        shippingCost: totals.shippingCost,
+        taxAmount: totals.taxAmount,
+        discountAmount: totals.discountAmount,
+        total: totals.total,
+        shippingAddress: addressJson,
+        billingAddress: addressJson,
+        createdAt,
       },
     })
 
     await prisma.orderItem.create({
       data: {
         orderId: order.id,
-        productId: i % 2 === 0 ? product1.id : product2.id,
-        productName: i % 2 === 0 ? 'Premium T-Shirt' : 'Klasik Jean',
-        variantName: i % 2 === 0 ? 'Medium - Beyaz' : '32 - Mavi',
-        price: i % 2 === 0 ? 199.99 : 349.99,
-        quantity: 1,
-        total: i % 2 === 0 ? 199.99 : 349.99,
+        productId: opts.productId,
+        productName: opts.productName,
+        variantName: opts.variantName,
+        price: opts.price,
+        quantity,
+        total: opts.price * quantity,
+      },
+    })
+    return order
+  }
+
+  for (let i = 1; i <= 6; i++) {
+    const customer = i % 2 === 0 ? customer1 : customer2
+    const useShirt = i % 2 === 0
+    await createOrder({
+      tenantId: tenant1.id,
+      customer,
+      orderNumber: `ORD-T1-${String(i).padStart(3, '0')}`,
+      status: i === 1 ? 'DELIVERED' : i === 2 ? 'SHIPPED' : i === 3 ? 'PREPARING' : 'CONFIRMED',
+      productId: useShirt ? product1.id : product2.id,
+      productName: useShirt ? 'Premium T-Shirt' : 'Klasik Jean',
+      variantName: useShirt ? 'Medium - Beyaz' : '32 - Mavi',
+      price: useShirt ? 199.99 : 349.99,
+      daysAgo: 6 - i,
+      address: {
+        line1: `Moda Cad. No:${i}`,
+        line2: `Daire ${i}`,
+        district: 'Kadıköy',
+        city: 'İstanbul',
+        postalCode: '34710',
       },
     })
   }
 
-  // Create customers for Tenant 2
   const customer3 = await prisma.customer.create({
     data: {
       tenantId: tenant2.id,
@@ -277,61 +491,30 @@ async function main() {
     },
   })
 
-  // 6 Orders for Tenant 2
   for (let i = 1; i <= 6; i++) {
     const customer = i % 2 === 0 ? customer3 : customer4
-    const order = await prisma.order.create({
-      data: {
-        tenantId: tenant2.id,
-        customerId: customer.id,
-        customerEmail: customer.email,
-        customerName: `${customer.firstName} ${customer.lastName}`,
-        orderNumber: `ORD-T2-${String(i).padStart(3, '0')}`,
-        status: i === 1 ? 'DELIVERED' : i === 2 ? 'SHIPPED' : 'CONFIRMED',
-        total: 149.99 + (i * 10),
-        subtotal: 149.99 + (i * 10),
-        taxAmount: 0,
-        shippingCost: 0,
-        shippingAddress: JSON.stringify({
-          firstName: i % 2 === 0 ? 'Ayşe' : 'Ali',
-          lastName: i % 2 === 0 ? 'Yıldız' : 'Kaya',
-          addressLine1: `Test Sokak No:${i}`,
-          addressLine2: `Daire ${i}`,
-          ilce: 'Beşiktaş',
-          il: 'İstanbul',
-          postalCode: '34100',
-          country: 'Türkiye',
-          phone: '5559876543',
-        }),
-        billingAddress: JSON.stringify({
-          firstName: i % 2 === 0 ? 'Ayşe' : 'Ali',
-          lastName: i % 2 === 0 ? 'Yıldız' : 'Kaya',
-          addressLine1: `Test Sokak No:${i}`,
-          addressLine2: `Daire ${i}`,
-          ilce: 'Beşiktaş',
-          il: 'İstanbul',
-          postalCode: '34100',
-          country: 'Türkiye',
-          phone: '5559876543',
-        }),
-      },
-    })
-
-    await prisma.orderItem.create({
-      data: {
-        orderId: order.id,
-        productId: i % 2 === 0 ? product3.id : product4.id,
-        productName: i % 2 === 0 ? 'Wireless Mouse' : 'Mechanical Keyboard',
-        variantName: i % 2 === 0 ? 'Standard - Siyah' : 'Red Switch - RGB',
-        price: i % 2 === 0 ? 149.99 : 899.99,
-        quantity: 1,
-        total: i % 2 === 0 ? 149.99 : 899.99,
+    const useMouse = i % 2 === 0
+    await createOrder({
+      tenantId: tenant2.id,
+      customer,
+      orderNumber: `ORD-T2-${String(i).padStart(3, '0')}`,
+      status: i === 1 ? 'DELIVERED' : i === 2 ? 'SHIPPED' : 'CONFIRMED',
+      productId: useMouse ? product3.id : product4.id,
+      productName: useMouse ? 'Wireless Mouse' : 'Mechanical Keyboard',
+      variantName: useMouse ? 'Standard - Siyah' : 'Red Switch - RGB',
+      price: useMouse ? 149.99 : 899.99,
+      daysAgo: 6 - i,
+      address: {
+        line1: `Büyükdere Cad. No:${i}`,
+        line2: `Kat ${i}`,
+        district: 'Beşiktaş',
+        city: 'İstanbul',
+        postalCode: '34330',
       },
     })
   }
-  console.log('✅ 12 orders (6 per tenant) created')
+  console.log('✅ 12 orders (6 per tenant) with correct totals created')
 
-  // Return with ReturnItems for Tenant 1
   const firstOrder = await prisma.order.findFirst({
     where: { tenantId: tenant1.id, status: 'DELIVERED' },
     include: { items: true },
@@ -361,7 +544,6 @@ async function main() {
     console.log('✅ 1 return with ReturnItems created')
   }
 
-  // Final counts
   const counts = {
     users: await prisma.user.count(),
     tenants: await prisma.tenant.count(),
@@ -371,25 +553,18 @@ async function main() {
     orderItems: await prisma.orderItem.count(),
     returns: await prisma.return.count(),
     returnItems: await prisma.returnItem.count(),
+    tenantPayments: await prisma.tenantPayment.count(),
+    plans: await prisma.plan.count(),
   }
 
   console.log('\n✅ Database seeding completed!')
   console.log('\n📊 Final Counts:')
-  console.log(`Users: ${counts.users}`)
-  console.log(`Tenants: ${counts.tenants}`)
-  console.log(`Products: ${counts.products}`)
-  console.log(`Product Variants: ${counts.productVariants}`)
-  console.log(`Orders: ${counts.orders}`)
-  console.log(`Order Items: ${counts.orderItems}`)
-  console.log(`Returns: ${counts.returns}`)
-  console.log(`Return Items: ${counts.returnItems}`)
-  
+  for (const [k, v] of Object.entries(counts)) console.log(`${k}: ${v}`)
   console.log('\n📋 Demo Credentials:')
   console.log('Super Admin: admin@posa360.com / admin123')
   console.log('Merchant 1: ahmet@shopmagaza.com / merchant123')
+  console.log('Staff 1: staff@shopmagaza.com / staff123')
   console.log('Merchant 2: mehmet@elektronikdunya.com / merchant123')
-  console.log('Customer 1: musteri@example.com / customer123')
-  console.log('Customer 2: ali@example.com / customer123')
 }
 
 main()

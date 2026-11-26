@@ -1,0 +1,7 @@
+# Per-host vhosts are written by deploy/scripts/issue-domain-cert.sh into:
+#   /etc/nginx/sites-available/posa-eticaret-hosts/<host>.conf
+# and included from eticaret.conf. Until a cert exists:
+#   - platform stores use the HTTP-only *.posa360.com catch-all (no HTTPS redirect)
+#   - custom domains get a temporary *.http-pending.conf (HTTP proxy only)
+#
+# Always: nginx -t before reload. Other product server blocks are never edited.

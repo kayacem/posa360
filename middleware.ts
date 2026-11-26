@@ -1,122 +1,220 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import {
+  PLATFORM_HOST,
+  HUB_SUBDOMAIN,
+  RESERVED_SUBDOMAINS,
+  dnsPlatformHost,
+  platformSubdomain,
+} from '@/lib/platform'
 
-// Platform ana domain (production'da posa360.com olacak)
-const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN || 'localhost:43210'
+function hostWithoutPort(hostname: string): string {
+  return hostname.split(':')[0].toLowerCase()
+}
+
+function isLocalDevHost(host: string): boolean {
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1'
+}
+
+/** Marketing + signup + login + super-admin hub (eticaret.* or localhost). */
+function isHubHost(host: string): boolean {
+  if (isLocalDevHost(host)) return true
+  const dnsHost = dnsPlatformHost()
+  return host === `${HUB_SUBDOMAIN}.${dnsHost}` || host === `${HUB_SUBDOMAIN}.${PLATFORM_HOST}`
+}
+
+/** Optional super-admin alias: panel.posa360.com */
+function isPanelHost(host: string): boolean {
+  const dnsHost = dnsPlatformHost()
+  return host === `panel.${dnsHost}` || host === `panel.${PLATFORM_HOST}`
+}
+
+function stripWww(host: string): string {
+  return host.startsWith('www.') ? host.slice(4) : host
+}
+
+const MARKETING_PATHS = new Set([
+  '/',
+  '/paketler',
+  '/iletisim',
+  '/kvkk',
+  '/gizlilik',
+  '/mesafeli-satis',
+])
 
 export function middleware(request: NextRequest) {
   const url = request.nextUrl.clone()
   const hostname = request.headers.get('host') || ''
-  
-  // X-Tenant-* headerları temizle (güvenlik)
+  const host = hostWithoutPort(hostname)
+  const dnsHost = dnsPlatformHost()
+
   const headers = new Headers(request.headers)
   headers.delete('x-tenant-id')
   headers.delete('x-tenant-slug')
   headers.delete('x-tenant-type')
-  
-  // 1. Super Admin Panel: panel.posa360.com veya localhost:43210/super-admin
-  if (hostname.startsWith('panel.') || url.pathname.startsWith('/super-admin')) {
-    headers.set('x-tenant-type', 'super-admin')
-    return NextResponse.rewrite(url, { headers })
+  headers.delete('x-tenant-identifier')
+  headers.delete('x-tenant-custom-domain')
+  headers.delete('x-tenant-path-based')
+
+  if (
+    url.pathname.startsWith('/api/internal/') ||
+    url.pathname === '/api/health'
+  ) {
+    return NextResponse.next({ request: { headers } })
   }
-  
-  // 2. Merchant Admin: admin.customdomain.com veya admin.shopslug.posa360.com
-  //    veya shopslug.posa360.com/admin
-  const isAdminSubdomain = hostname.startsWith('admin.')
+
+  // Apex / www belong to the existing POSA hub — never claim them.
+  if (host === dnsHost || host === `www.${dnsHost}`) {
+    return new NextResponse('Not found', { status: 404 })
+  }
+
+  // panel.posa360.com → super admin
+  if (isPanelHost(host)) {
+    headers.set('x-tenant-type', 'super-admin')
+    if (url.pathname === '/' || url.pathname === '' || url.pathname === '/admin') {
+      url.pathname = '/super-admin'
+      return NextResponse.rewrite(url, { request: { headers } })
+    }
+    if (url.pathname.startsWith('/admin')) {
+      url.pathname = url.pathname.replace(/^\/admin/, '/super-admin')
+      return NextResponse.rewrite(url, { request: { headers } })
+    }
+    return NextResponse.rewrite(url, { request: { headers } })
+  }
+
+  // 1. Hub: eticaret.posa360.com (+ localhost in dev)
+  if (isHubHost(host)) {
+    const path = url.pathname
+
+    if (path === '/admin' || path.startsWith('/admin/')) {
+      headers.set('x-tenant-type', 'super-admin')
+      url.pathname = path === '/admin' ? '/super-admin' : path.replace(/^\/admin/, '/super-admin')
+      return NextResponse.rewrite(url, { request: { headers } })
+    }
+
+    if (path.startsWith('/super-admin')) {
+      headers.set('x-tenant-type', 'super-admin')
+      return NextResponse.rewrite(url, { request: { headers } })
+    }
+
+    const isAppRoute =
+      path.startsWith('/login') ||
+      path.startsWith('/kayit') ||
+      path.startsWith('/platform') ||
+      path.startsWith('/api') ||
+      path.startsWith('/marketing')
+
+    if (!isAppRoute && (MARKETING_PATHS.has(path) || path === '/')) {
+      headers.set('x-tenant-type', 'marketing')
+      url.pathname = path === '/' ? '/marketing' : `/marketing${path}`
+      return NextResponse.rewrite(url, { request: { headers } })
+    }
+
+    if (path.startsWith('/marketing')) {
+      headers.set('x-tenant-type', 'marketing')
+      return NextResponse.rewrite(url, { request: { headers } })
+    }
+
+    headers.set('x-tenant-type', 'platform-app')
+    return NextResponse.rewrite(url, { request: { headers } })
+  }
+
+  if (url.pathname.startsWith('/super-admin')) {
+    headers.set('x-tenant-type', 'super-admin')
+    return NextResponse.rewrite(url, { request: { headers } })
+  }
+
+  const reservedSub = platformSubdomain(host)
+  if (reservedSub && RESERVED_SUBDOMAINS.has(reservedSub)) {
+    return new NextResponse('Not found', { status: 404 })
+  }
+
+  const isAdminSubdomain = host.startsWith('admin.')
   const isAdminPath = url.pathname.startsWith('/admin')
-  
+
+  // 2. Merchant Admin — {slug}.*/admin or admin.<customdomain>
   if (isAdminSubdomain || isAdminPath) {
     let tenantIdentifier: string | null = null
-    
+    let isCustomDomain = false
+
     if (isAdminSubdomain) {
-      // admin.shopcem.com -> tenant via custom domain (shopcem.com)
-      // admin.shopmagaza.posa360.com -> tenant via slug (shopmagaza)
-      const parts = hostname.split('.')
-      if (parts.length >= 3) {
-        const restDomain = parts.slice(1).join('.')
-        
-        if (restDomain.includes(PLATFORM_DOMAIN.split(':')[0])) {
-          // admin.shopmagaza.posa360.com -> slug: shopmagaza
-          tenantIdentifier = parts[0].replace('admin', '').replace('.', '') || parts[1]
-        } else {
-          // admin.shopcem.com -> custom domain: shopcem.com
-          tenantIdentifier = restDomain
-          headers.set('x-tenant-custom-domain', restDomain)
+      const withoutAdmin = host.slice('admin.'.length)
+      if (
+        withoutAdmin === dnsHost ||
+        withoutAdmin === PLATFORM_HOST ||
+        withoutAdmin.endsWith(`.${dnsHost}`) ||
+        withoutAdmin.endsWith(`.${PLATFORM_HOST}`) ||
+        withoutAdmin === 'localhost' ||
+        withoutAdmin.endsWith('.localhost')
+      ) {
+        tenantIdentifier = platformSubdomain(withoutAdmin) || (withoutAdmin === 'localhost' ? null : withoutAdmin.split('.')[0])
+        if (withoutAdmin === 'localhost') tenantIdentifier = null
+        if (withoutAdmin.endsWith('.localhost') || withoutAdmin.endsWith(`.${PLATFORM_HOST}`) || withoutAdmin.endsWith(`.${dnsHost}`)) {
+          tenantIdentifier = platformSubdomain(withoutAdmin)
         }
+      } else {
+        tenantIdentifier = stripWww(withoutAdmin)
+        isCustomDomain = true
       }
     } else if (isAdminPath) {
-      // Path-based: shopmagaza.posa360.com/admin or posa360.com/shopmagaza/admin
-      // Extract tenant from subdomain or first path segment
-      const parts = hostname.split('.')
-      
-      if (parts[0] !== 'www' && parts[0] !== PLATFORM_DOMAIN.split(':')[0].split('.')[0]) {
-        // subdomain-based
-        tenantIdentifier = parts[0]
-      } else {
-        // path-based: /shopmagaza/admin -> shopmagaza
-        const pathParts = url.pathname.split('/').filter(Boolean)
-        if (pathParts.length >= 2 && pathParts[1] === 'admin') {
-          tenantIdentifier = pathParts[0]
-        }
+      const sub = platformSubdomain(host)
+      if (sub && !RESERVED_SUBDOMAINS.has(sub)) {
+        tenantIdentifier = sub
+      } else if (!host.includes(dnsHost) && !host.includes(PLATFORM_HOST) && !isLocalDevHost(host) && !host.endsWith('.localhost') && host !== dnsHost) {
+        tenantIdentifier = stripWww(host)
+        isCustomDomain = true
       }
     }
-    
-    if (tenantIdentifier) {
+
+    if (tenantIdentifier && !RESERVED_SUBDOMAINS.has(tenantIdentifier)) {
       headers.set('x-tenant-identifier', tenantIdentifier)
       headers.set('x-tenant-type', 'merchant-admin')
+      if (isCustomDomain) {
+        headers.set('x-tenant-custom-domain', tenantIdentifier)
+      }
     }
-    
-    return NextResponse.rewrite(url, { headers })
+
+    if (isAdminSubdomain && (url.pathname === '/' || url.pathname === '')) {
+      url.pathname = '/admin'
+      return NextResponse.rewrite(url, { request: { headers } })
+    }
+
+    return NextResponse.rewrite(url, { request: { headers } })
   }
-  
-  // 3. Storefront: subdomain, path, veya custom domain
+
+  // 3. Storefront
   let tenantIdentifier: string | null = null
   let isCustomDomain = false
-  
-  const parts = hostname.split('.')
-  const platformBase = PLATFORM_DOMAIN.split(':')[0]
-  
-  // Custom domain check: eğer hostname platform domain'i içermiyorsa custom domain'dir
-  if (!hostname.includes(platformBase)) {
-    // shopcem.com gibi custom domain
-    tenantIdentifier = hostname.split(':')[0] // port varsa kaldır
+
+  if (
+    !host.includes(dnsHost) &&
+    !host.includes(PLATFORM_HOST) &&
+    !isLocalDevHost(host) &&
+    !host.endsWith('.localhost') &&
+    host !== dnsHost
+  ) {
+    tenantIdentifier = stripWww(host)
     isCustomDomain = true
-    headers.set('x-tenant-custom-domain', tenantIdentifier)
-  }
-  // Subdomain check: shopmagaza.posa360.com
-  else if (parts.length >= 2 && parts[0] !== 'www' && parts[0] !== platformBase.split('.')[0]) {
-    tenantIdentifier = parts[0]
-  }
-  // Path-based routing: posa360.com/shopmagaza
-  else if (url.pathname.startsWith('/') && url.pathname.split('/').length >= 2) {
-    const pathParts = url.pathname.split('/').filter(Boolean)
-    if (pathParts.length >= 1 && pathParts[0] !== 'api' && pathParts[0] !== '_next') {
-      tenantIdentifier = pathParts[0]
-      headers.set('x-tenant-path-based', 'true')
+  } else {
+    const sub = platformSubdomain(host)
+    if (sub && !RESERVED_SUBDOMAINS.has(sub)) {
+      tenantIdentifier = sub
     }
   }
-  
+
   if (tenantIdentifier) {
     headers.set('x-tenant-identifier', tenantIdentifier)
     headers.set('x-tenant-type', 'storefront')
-    
     if (isCustomDomain) {
       headers.set('x-tenant-custom-domain', tenantIdentifier)
     }
   }
-  
-  return NextResponse.rewrite(url, { headers })
+
+  return NextResponse.rewrite(url, { request: { headers } })
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico (favicon file)
-     * - public files (public folder)
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
