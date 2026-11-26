@@ -64,7 +64,7 @@ nano /opt/posa/apps/eticaret/.env
 chmod 600 /opt/posa/apps/eticaret/.env
 ```
 
-Önemli değişkenler: `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL=https://eticaret.posa360.com`, `NEXT_PUBLIC_*`, `CERT_AGENT_SECRET`.
+Önemli değişkenler: `DATABASE_URL`, `AUTH_SECRET` (+ aynı değerle `NEXTAUTH_SECRET`), `AUTH_TRUST_HOST=true`, `NEXT_PUBLIC_*`, `CERT_AGENT_SECRET`. **`NEXTAUTH_URL`/`AUTH_URL` koymayın** (çoklu host girişini bozar).
 
 ```bash
 echo 'posa ALL=(root) NOPASSWD: /bin/systemctl restart posa-eticaret' | sudo tee /etc/sudoers.d/posa-eticaret
