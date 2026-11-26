@@ -1,0 +1,35 @@
+{
+  "cookies": [
+    {
+      "name": "authjs.callback-url",
+      "value": "http%3A%2F%2Flocalhost%3A43210",
+      "domain": "shopmagaza.localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "authjs.csrf-token",
+      "value": "405f0d1cb44cee826bb10448283c9eb79f62545f8506e74df710e5a4ea24b412%7C039e740549eca11386335f99ce5e6c73cca7d27f854fc7730ea7d6e8b586b6a2",
+      "domain": "shopmagaza.localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "authjs.session-token",
+      "value": "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwia2lkIjoiY3lEcGFjWkpmRE1PckNfN19IVGtXeVlxY1BXbWVBYnZDX0llbFhxekxKbm5US1ZoQXZXT2J1UEVPcTZnUEUtVGo2TDcyR3BTNkxRQzV4Nkpzc1ptNkEifQ..vMT4dKPdsO3wo8GHnPiQ5w.dtwUTY59ToNjS8M9sOxNYf-E2uLm-2jbF0FvueRrHMWqzc1lFJOPB668ZDf9vxl1QIyyxSkYiTWNbLyJWMAY_Z8n_9WALUDCKEcCQAdO_uAzV2nOeWSsENfEK-kkO7MDEy9csuj0VP2-wa0txkeAskJ5cv6JCkDqB6iXXKvhABkAGLQqMmTgwoEXGJUXe6H3QedE3ZFyv-RO3FbiEIOb-pXatxNETS4wA-dPAWhDAu2cPyVEcC0xaL-EJvrIO92-l_9pQdA7Lz1VT9d0B0oRqRfO11U7qH1pTl40JPSzIC20VU3Enjf6nOKnZuvotQMGy_ptwEjwnr5Oh21YRTflBJ0gGzshrMgUKgqKlp2HpL6o3Uf8KTnjeJGe3mrVmjRw9xaVdvt6hx-ly-jHM_2O1-SYIJo1hUwPgvP0LCPyLw84ayyAyw9Z8CXVoikeKG5S.BBBJaQppDc541pPN6Wo5T9_uRs4HpXl0pi3IKjSRTgI",
+      "domain": "shopmagaza.localhost",
+      "path": "/",
+      "expires": 1798277093.172733,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}
