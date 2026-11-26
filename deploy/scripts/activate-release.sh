@@ -28,6 +28,13 @@ if [[ "$(id -u)" -eq 0 ]] && id "$RUN_USER" >/dev/null 2>&1; then
   chown -R "$RUN_USER:$RUN_USER" "$RELEASE_DIR"
 fi
 
+# actions/upload-artifact does not preserve file modes: restore exec bits on the
+# Prisma engine binaries (schema-engine is spawned by `migrate deploy`) and scripts.
+find "$RELEASE_DIR/prisma-cli/node_modules/@prisma/engines" "$RELEASE_DIR/node_modules/@prisma/engines" \
+  -maxdepth 1 -type f -name 'schema-engine-*' -exec chmod +x {} + 2>/dev/null || true
+find "$RELEASE_DIR/prisma-cli/node_modules/.bin" "$RELEASE_DIR/deploy/scripts" \
+  -maxdepth 1 \( -type f -o -type l \) -exec chmod +x {} + 2>/dev/null || true
+
 PREV=""
 if [[ -L "$CURRENT_LINK" ]]; then
   PREV="$(readlink -f "$CURRENT_LINK" || true)"
