@@ -62,7 +62,10 @@ export function middleware(request: NextRequest) {
   headers.delete('x-tenant-custom-domain')
   headers.delete('x-tenant-path-based')
 
-  if (url.pathname.startsWith('/api/internal/')) {
+  if (
+    url.pathname.startsWith('/api/internal/') ||
+    url.pathname === '/api/health'
+  ) {
     return NextResponse.next({ request: { headers } })
   }
 

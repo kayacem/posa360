@@ -22,6 +22,7 @@ services:
       - posa360
 
   app:
+    image: posa360-app:latest
     build:
       context: .
       dockerfile: Dockerfile
