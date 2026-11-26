@@ -110,7 +110,7 @@ export default async function TenantsPage() {
                     <h4 className="text-sm font-semibold text-gray-700 mb-2">Subscription</h4>
                     <div className="space-y-1 text-sm">
                       <p><strong>Aylık Ücret:</strong> {formatCurrency(tenant.monthlyFee)}</p>
-                      <p>
+                      <div>
                         <strong>Durum:</strong>{' '}
                         <Badge 
                           variant={tenant.lastPaymentStatus === 'PAID' ? 'success' : 'warning'}
@@ -118,7 +118,7 @@ export default async function TenantsPage() {
                         >
                           {tenant.lastPaymentStatus}
                         </Badge>
-                      </p>
+                      </div>
                       {tenant.lastPaymentDate && (
                         <p><strong>Son Ödeme:</strong> {formatDate(tenant.lastPaymentDate)}</p>
                       )}
