@@ -13,7 +13,7 @@ export default async function ProductsPage() {
   }
 
   const products = await prisma.product.findMany({
-    where: { tenantId: tenantContext.tenant.id },
+    where: { tenantId: tenantContext.id },
     include: {
       images: { take: 1 },
       categories: { include: { category: true } },

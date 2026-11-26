@@ -18,7 +18,7 @@ export default async function CustomerOrdersPage() {
 
   const customer = await prisma.customer.findFirst({
     where: {
-      tenantId: tenantContext.tenant.id,
+      tenantId: tenantContext.id,
       email: session.user.email!,
     },
   })

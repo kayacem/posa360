@@ -21,16 +21,16 @@ export default async function SettingsPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Mağaza Adı</label>
-                <p className="text-gray-900">{tenantContext.tenant.name}</p>
+                <p className="text-gray-900">{tenantContext.name}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Slug</label>
-                <p className="text-gray-900">{tenantContext.tenant.slug}</p>
+                <p className="text-gray-900">{tenantContext.slug}</p>
               </div>
-              {tenantContext.tenant.customDomain && (
+              {tenantContext.customDomain && (
                 <div>
                   <label className="block text-sm font-medium mb-1">Özel Domain</label>
-                  <p className="text-gray-900">{tenantContext.tenant.customDomain}</p>
+                  <p className="text-gray-900">{tenantContext.customDomain}</p>
                 </div>
               )}
             </div>

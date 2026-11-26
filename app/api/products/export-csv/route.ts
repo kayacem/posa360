@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     if (!tenantContext) return NextResponse.json({ error: 'Tenant bulunamadı' }, { status: 404 })
 
     const products = await prisma.product.findMany({
-      where: { tenantId: tenantContext.tenant.id },
+      where: { tenantId: tenantContext.id },
       include: { brand: true, categories: { include: { category: true } } },
     })
 

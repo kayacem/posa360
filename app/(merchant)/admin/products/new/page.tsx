@@ -10,12 +10,12 @@ export default async function NewProductPage() {
   }
 
   const categories = await prisma.category.findMany({
-    where: { tenantId: tenantContext.tenant.id, isActive: true },
+    where: { tenantId: tenantContext.id, isActive: true },
     orderBy: { name: 'asc' },
   })
 
   const brands = await prisma.brand.findMany({
-    where: { tenantId: tenantContext.tenant.id, isActive: true },
+    where: { tenantId: tenantContext.id, isActive: true },
     orderBy: { name: 'asc' },
   })
 

@@ -15,7 +15,7 @@ export default async function AddressesPage() {
   if (!tenantContext) return <div>Tenant bulunamadı</div>
 
   const customer = await prisma.customer.findFirst({
-    where: { tenantId: tenantContext.tenant.id, email: session.user.email! },
+    where: { tenantId: tenantContext.id, email: session.user.email! },
     include: { addresses: true },
   })
 

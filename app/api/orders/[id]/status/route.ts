@@ -24,7 +24,7 @@ export async function PATCH(
     const order = await prisma.order.findFirst({
       where: {
         id: params.id,
-        tenantId: tenantContext.tenant.id,
+        tenantId: tenantContext.id,
       },
     })
 

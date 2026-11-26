@@ -11,19 +11,19 @@ export default async function MerchantDashboard() {
   }
 
   const [productCount, orderCount, customerCount, pendingOrderCount] = await Promise.all([
-    prisma.product.count({ where: { tenantId: tenantContext.tenant.id } }),
-    prisma.order.count({ where: { tenantId: tenantContext.tenant.id } }),
-    prisma.customer.count({ where: { tenantId: tenantContext.tenant.id } }),
+    prisma.product.count({ where: { tenantId: tenantContext.id } }),
+    prisma.order.count({ where: { tenantId: tenantContext.id } }),
+    prisma.customer.count({ where: { tenantId: tenantContext.id } }),
     prisma.order.count({
       where: {
-        tenantId: tenantContext.tenant.id,
+        tenantId: tenantContext.id,
         status: { in: ['PENDING', 'PREPARING'] },
       },
     }),
   ])
 
   const recentOrders = await prisma.order.findMany({
-    where: { tenantId: tenantContext.tenant.id },
+    where: { tenantId: tenantContext.id },
     include: {
       customer: true,
       items: { include: { product: true } },

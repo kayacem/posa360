@@ -10,7 +10,7 @@ export default async function CouponsPage() {
   if (!tenantContext) return <div>Tenant bulunamadı</div>
 
   const coupons = await prisma.coupon.findMany({
-    where: { tenantId: tenantContext.tenant.id },
+    where: { tenantId: tenantContext.id },
     orderBy: { createdAt: 'desc' },
   })
 

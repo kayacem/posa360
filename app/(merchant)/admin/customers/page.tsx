@@ -11,7 +11,7 @@ export default async function CustomersPage() {
   }
 
   const customers = await prisma.customer.findMany({
-    where: { tenantId: tenantContext.tenant.id },
+    where: { tenantId: tenantContext.id },
     include: {
       _count: { select: { orders: true } },
     },

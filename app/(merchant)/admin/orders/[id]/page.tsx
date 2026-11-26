@@ -19,7 +19,7 @@ export default async function OrderDetailPage({
   const order = await prisma.order.findFirst({
     where: {
       id: params.id,
-      tenantId: tenantContext.tenant.id,
+      tenantId: tenantContext.id,
     },
     include: {
       customer: true,

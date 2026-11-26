@@ -11,7 +11,7 @@ export default async function EditProductPage({ params }: { params: { id: string
   }
 
   const product = await prisma.product.findFirst({
-    where: { id: params.id, tenantId: tenantContext.tenant.id },
+    where: { id: params.id, tenantId: tenantContext.id },
     include: {
       images: true,
       variants: true,
@@ -25,12 +25,12 @@ export default async function EditProductPage({ params }: { params: { id: string
   }
 
   const categories = await prisma.category.findMany({
-    where: { tenantId: tenantContext.tenant.id, isActive: true },
+    where: { tenantId: tenantContext.id, isActive: true },
     orderBy: { name: 'asc' },
   })
 
   const brands = await prisma.brand.findMany({
-    where: { tenantId: tenantContext.tenant.id, isActive: true },
+    where: { tenantId: tenantContext.id, isActive: true },
     orderBy: { name: 'asc' },
   })
 

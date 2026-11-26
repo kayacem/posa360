@@ -14,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const { action } = await req.json()
     const ret = await prisma.return.findFirst({
-      where: { id: params.id, tenantId: tenantContext.tenant.id },
+      where: { id: params.id, tenantId: tenantContext.id },
       include: { returnItems: { include: { orderItem: true } } },
     })
 

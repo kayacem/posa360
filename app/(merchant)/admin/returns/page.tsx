@@ -9,7 +9,7 @@ export default async function ReturnsPage() {
   if (!tenantContext) return <div>Tenant bulunamadı</div>
 
   const returns = await prisma.return.findMany({
-    where: { tenantId: tenantContext.tenant.id },
+    where: { tenantId: tenantContext.id },
     include: {
       order: { include: { customer: true } },
       returnItems: { include: { orderItem: { include: { product: true } } } },

@@ -12,7 +12,7 @@
     },
     {
       "name": "authjs.csrf-token",
-      "value": "f00d97739aa486ee4a3e72053b1f85cbfaaaa66ae2d6518ccd5458df6005f032%7Cf7e770f5891118734a556703e6438dec51ed33c7b243b6dc95d00cc20ba0f086",
+      "value": "363af69d57596744297d97c460c3f0e36ae2422b42c29a515cafee75a74eee87%7C95502a3cfd13cc3b11e7d406f555ac0c1d387cdea8c29c5404ed13e4e3e47ab8",
       "domain": "localhost",
       "path": "/",
       "expires": -1,

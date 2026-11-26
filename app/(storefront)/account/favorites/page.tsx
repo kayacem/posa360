@@ -14,7 +14,7 @@ export default async function FavoritesPage() {
   if (!tenantContext) return <div>Tenant bulunamadı</div>
 
   const customer = await prisma.customer.findFirst({
-    where: { tenantId: tenantContext.tenant.id, email: session.user.email! },
+    where: { tenantId: tenantContext.id, email: session.user.email! },
     include: { favorites: { include: { product: { include: { images: { take: 1 } } } } } },
   })
 

@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     if (!tenantContext) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
 
     const order = await prisma.order.findFirst({
-      where: { id: params.id, tenantId: tenantContext.tenant.id },
+      where: { id: params.id, tenantId: tenantContext.id },
       include: {
         customer: true,
         shipments: true,
