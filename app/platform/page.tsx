@@ -81,16 +81,6 @@ export default function PlatformHomePage() {
           </CardContent>
         </Card>
 
-        <div className="mt-8 p-6 bg-blue-50 rounded-lg">
-          <h3 className="font-semibold text-lg mb-2">Demo Kullanıcılar</h3>
-          <div className="text-sm space-y-1 text-gray-700">
-            <p><strong>Super Admin:</strong> admin@posa360.com / admin123</p>
-            <p><strong>Merchant 1:</strong> ahmet@shopmagaza.com / merchant123</p>
-            <p><strong>Merchant 2:</strong> mehmet@elektronikdunya.com / merchant123</p>
-            <p><strong>Müşteri:</strong> musteri@example.com / customer123</p>
-          </div>
-        </div>
-
         <div className="mt-6 text-center text-sm text-gray-500">
           <p>
             Custom domain test için <code className="bg-gray-200 px-2 py-1 rounded">/etc/hosts</code> dosyanıza ekleyin:
