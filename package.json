@@ -11,14 +11,14 @@
     "db:push": "prisma db push",
     "db:seed": "tsx scripts/seed.ts",
     "db:reset": "prisma db push --force-reset && npm run db:seed",
-    "setup": "npm run contract:emit && npm run db:push && npm run db:seed"
+    "setup": "npm run contract:emit && npm run db:push && npm run db:seed",
+    "postinstall": "prisma skills sync || exit 0"
   },
   "dependencies": {
     "@auth/core": "^0.41.3",
     "@auth/prisma-adapter": "^2.11.3",
     "@hookform/resolvers": "^7.0.9",
-    "@prisma/client": "^7.10.1",
-    "@prisma/orm-postgres": "^8.0.0-rc.25",
+    "@prisma/client": "^6.19.3",
     "@radix-ui/react-avatar": "^1.3.1",
     "@radix-ui/react-checkbox": "^1.4.1",
     "@radix-ui/react-dialog": "^1.3.1",
@@ -50,7 +50,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",
-    "@prisma/cli-engine": "^0.10.4",
     "@tailwindcss/turbopack": "4.3.3",
     "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",
@@ -59,7 +58,7 @@
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
     "playwright": "^1.65.1",
-    "prisma": "^8.0.0-rc.35",
+    "prisma": "^6.19.3",
     "tailwindcss": "4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^5"

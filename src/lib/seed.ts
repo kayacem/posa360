@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { db } from '@/prisma/db'
+import prisma from './db'
 import { hashPassword } from './auth'
 
 export async function seedDatabase() {
@@ -7,9 +6,8 @@ export async function seedDatabase() {
 
   // Super Admin User
   const superAdminPassword = await hashPassword('admin123')
-  const superAdmin = await db.orm.public.User.create({
+  const superAdmin = await prisma.user.create({
     data: {
-      id: 'super-admin-1',
       email: 'admin@posa360.com',
       password: superAdminPassword,
       name: 'Cem Kaya',
@@ -19,12 +17,10 @@ export async function seedDatabase() {
   console.log('✅ Super admin created')
 
   // Tenant 1: Shop Mağaza
-  const tenant1 = await db.orm.public.Tenant.create({
+  const tenant1 = await prisma.tenant.create({
     data: {
-      id: 'tenant-shopmagaza',
       name: 'Shop Mağaza',
       slug: 'shopmagaza',
-      customDomain: null,
       status: 'ACTIVE',
       plan: 'professional',
       companyName: 'Shop Mağaza Ltd. Şti.',
@@ -34,13 +30,8 @@ export async function seedDatabase() {
       taxNumber: '1234567890',
       monthlyFee: 299,
       lastPaymentStatus: 'PAID',
-      logoUrl: null,
       primaryColor: '#2563eb',
-      secondaryColor: '#ffffff',
       currency: 'TRY',
-      locale: 'tr-TR',
-      timezone: 'Europe/Istanbul',
-      taxRate: 0.20,
       maxProducts: 500,
       maxOrders: 5000,
       maxStaff: 10,
@@ -48,13 +39,12 @@ export async function seedDatabase() {
     },
   })
 
-  // Tenant 2: Elektronik Dünyası (with simulated custom domain)
-  const tenant2 = await db.orm.public.Tenant.create({
+  // Tenant 2: Elektronik Dünyası
+  const tenant2 = await prisma.tenant.create({
     data: {
-      id: 'tenant-elektronik',
       name: 'Elektronik Dünyası',
       slug: 'elektronikdunya',
-      customDomain: 'shopcem.local', // hosts dosyasında test edilecek
+      customDomain: 'shopcem.local',
       status: 'ACTIVE',
       plan: 'enterprise',
       companyName: 'Elektronik Dünyası A.Ş.',
@@ -64,13 +54,8 @@ export async function seedDatabase() {
       taxNumber: '9876543210',
       monthlyFee: 599,
       lastPaymentStatus: 'PAID',
-      logoUrl: null,
       primaryColor: '#059669',
-      secondaryColor: '#ffffff',
       currency: 'TRY',
-      locale: 'tr-TR',
-      timezone: 'Europe/Istanbul',
-      taxRate: 0.20,
       maxProducts: 1000,
       maxOrders: 10000,
       maxStaff: 20,
@@ -79,12 +64,11 @@ export async function seedDatabase() {
   })
   console.log('✅ Tenants created')
 
-  // Tenant Users (Merchant Admins)
+  // Merchant Users
   const merchantPassword = await hashPassword('merchant123')
   
-  const merchant1 = await db.orm.public.User.create({
+  const merchant1 = await prisma.user.create({
     data: {
-      id: 'merchant-1',
       email: 'ahmet@shopmagaza.com',
       password: merchantPassword,
       name: 'Ahmet Yılmaz',
@@ -92,9 +76,8 @@ export async function seedDatabase() {
     },
   })
 
-  await db.orm.public.TenantUser.create({
+  await prisma.tenantUser.create({
     data: {
-      id: 'tenant-user-1',
       tenantId: tenant1.id,
       userId: merchant1.id,
       role: 'TENANT_OWNER',
@@ -102,9 +85,8 @@ export async function seedDatabase() {
     },
   })
 
-  const merchant2 = await db.orm.public.User.create({
+  const merchant2 = await prisma.user.create({
     data: {
-      id: 'merchant-2',
       email: 'mehmet@elektronikdunya.com',
       password: merchantPassword,
       name: 'Mehmet Demir',
@@ -112,9 +94,8 @@ export async function seedDatabase() {
     },
   })
 
-  await db.orm.public.TenantUser.create({
+  await prisma.tenantUser.create({
     data: {
-      id: 'tenant-user-2',
       tenantId: tenant2.id,
       userId: merchant2.id,
       role: 'TENANT_OWNER',
@@ -124,9 +105,8 @@ export async function seedDatabase() {
   console.log('✅ Merchant users created')
 
   // Categories for Tenant 1
-  const cat1 = await db.orm.public.Category.create({
+  const cat1 = await prisma.category.create({
     data: {
-      id: 'cat-1-t-shirt',
       tenantId: tenant1.id,
       name: 'T-Shirt',
       slug: 't-shirt',
@@ -136,9 +116,8 @@ export async function seedDatabase() {
     },
   })
 
-  const cat2 = await db.orm.public.Category.create({
+  const cat2 = await prisma.category.create({
     data: {
-      id: 'cat-1-pants',
       tenantId: tenant1.id,
       name: 'Pantolon',
       slug: 'pantolon',
@@ -149,9 +128,8 @@ export async function seedDatabase() {
   })
 
   // Categories for Tenant 2
-  const cat3 = await db.orm.public.Category.create({
+  const cat3 = await prisma.category.create({
     data: {
-      id: 'cat-2-phone',
       tenantId: tenant2.id,
       name: 'Cep Telefonu',
       slug: 'cep-telefonu',
@@ -161,9 +139,8 @@ export async function seedDatabase() {
     },
   })
 
-  const cat4 = await db.orm.public.Category.create({
+  const cat4 = await prisma.category.create({
     data: {
-      id: 'cat-2-laptop',
       tenantId: tenant2.id,
       name: 'Laptop',
       slug: 'laptop',
@@ -175,9 +152,8 @@ export async function seedDatabase() {
   console.log('✅ Categories created')
 
   // Brand for Tenant 1
-  const brand1 = await db.orm.public.Brand.create({
+  const brand1 = await prisma.brand.create({
     data: {
-      id: 'brand-fashion',
       tenantId: tenant1.id,
       name: 'Fashion Line',
       slug: 'fashion-line',
@@ -187,9 +163,8 @@ export async function seedDatabase() {
   })
 
   // Products for Tenant 1
-  const product1 = await db.orm.public.Product.create({
+  const product1 = await prisma.product.create({
     data: {
-      id: 'prod-1-tshirt-blue',
       tenantId: tenant1.id,
       brandId: brand1.id,
       name: 'Mavi Basic T-Shirt',
@@ -211,16 +186,15 @@ export async function seedDatabase() {
     },
   })
 
-  await db.orm.public.ProductCategory.create({
+  await prisma.productCategory.create({
     data: {
       productId: product1.id,
       categoryId: cat1.id,
     },
   })
 
-  await db.orm.public.ProductImage.create({
+  await prisma.productImage.create({
     data: {
-      id: 'img-prod-1-1',
       productId: product1.id,
       url: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500',
       altText: 'Mavi T-Shirt',
@@ -228,9 +202,8 @@ export async function seedDatabase() {
     },
   })
 
-  const product2 = await db.orm.public.Product.create({
+  const product2 = await prisma.product.create({
     data: {
-      id: 'prod-1-jeans',
       tenantId: tenant1.id,
       brandId: brand1.id,
       name: 'Slim Fit Kot Pantolon',
@@ -250,16 +223,15 @@ export async function seedDatabase() {
     },
   })
 
-  await db.orm.public.ProductCategory.create({
+  await prisma.productCategory.create({
     data: {
       productId: product2.id,
       categoryId: cat2.id,
     },
   })
 
-  await db.orm.public.ProductImage.create({
+  await prisma.productImage.create({
     data: {
-      id: 'img-prod-2-1',
       productId: product2.id,
       url: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=500',
       altText: 'Kot Pantolon',
@@ -268,9 +240,8 @@ export async function seedDatabase() {
   })
 
   // Product variants for jeans
-  await db.orm.public.ProductVariant.create({
+  await prisma.productVariant.create({
     data: {
-      id: 'var-jeans-32',
       productId: product2.id,
       name: 'Beden: 32',
       sku: 'PNT-JEANS-001-32',
@@ -281,9 +252,8 @@ export async function seedDatabase() {
     },
   })
 
-  await db.orm.public.ProductVariant.create({
+  await prisma.productVariant.create({
     data: {
-      id: 'var-jeans-34',
       productId: product2.id,
       name: 'Beden: 34',
       sku: 'PNT-JEANS-001-34',
@@ -295,9 +265,8 @@ export async function seedDatabase() {
   })
 
   // Products for Tenant 2
-  const product3 = await db.orm.public.Product.create({
+  const product3 = await prisma.product.create({
     data: {
-      id: 'prod-2-iphone',
       tenantId: tenant2.id,
       name: 'iPhone 15 Pro',
       slug: 'iphone-15-pro',
@@ -317,16 +286,15 @@ export async function seedDatabase() {
     },
   })
 
-  await db.orm.public.ProductCategory.create({
+  await prisma.productCategory.create({
     data: {
       productId: product3.id,
       categoryId: cat3.id,
     },
   })
 
-  await db.orm.public.ProductImage.create({
+  await prisma.productImage.create({
     data: {
-      id: 'img-prod-3-1',
       productId: product3.id,
       url: 'https://images.unsplash.com/photo-1678685888221-cda773a3dcdb?w=500',
       altText: 'iPhone 15 Pro',
@@ -334,9 +302,8 @@ export async function seedDatabase() {
     },
   })
 
-  const product4 = await db.orm.public.Product.create({
+  const product4 = await prisma.product.create({
     data: {
-      id: 'prod-2-macbook',
       tenantId: tenant2.id,
       name: 'MacBook Pro 14"',
       slug: 'macbook-pro-14',
@@ -355,16 +322,15 @@ export async function seedDatabase() {
     },
   })
 
-  await db.orm.public.ProductCategory.create({
+  await prisma.productCategory.create({
     data: {
       productId: product4.id,
       categoryId: cat4.id,
     },
   })
 
-  await db.orm.public.ProductImage.create({
+  await prisma.productImage.create({
     data: {
-      id: 'img-prod-4-1',
       productId: product4.id,
       url: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=500',
       altText: 'MacBook Pro',
@@ -376,9 +342,8 @@ export async function seedDatabase() {
   // Demo customers
   const customerPassword = await hashPassword('customer123')
   
-  const customer1 = await db.orm.public.Customer.create({
+  const customer1 = await prisma.customer.create({
     data: {
-      id: 'cust-1',
       tenantId: tenant1.id,
       email: 'musteri@example.com',
       password: customerPassword,
@@ -389,9 +354,8 @@ export async function seedDatabase() {
     },
   })
 
-  await db.orm.public.Address.create({
+  await prisma.address.create({
     data: {
-      id: 'addr-1',
       customerId: customer1.id,
       title: 'Ev',
       firstName: 'Ayşe',
@@ -405,9 +369,8 @@ export async function seedDatabase() {
     },
   })
 
-  const customer2 = await db.orm.public.Customer.create({
+  const customer2 = await prisma.customer.create({
     data: {
-      id: 'cust-2',
       tenantId: tenant2.id,
       email: 'ali@example.com',
       password: customerPassword,
@@ -418,9 +381,8 @@ export async function seedDatabase() {
     },
   })
 
-  await db.orm.public.Address.create({
+  await prisma.address.create({
     data: {
-      id: 'addr-2',
       customerId: customer2.id,
       title: 'İş',
       firstName: 'Ali',
@@ -436,9 +398,8 @@ export async function seedDatabase() {
   console.log('✅ Customers created')
 
   // Shipping rules
-  await db.orm.public.ShippingRule.create({
+  await prisma.shippingRule.create({
     data: {
-      id: 'ship-rule-1-flat',
       tenantId: tenant1.id,
       name: 'Standart Kargo',
       type: 'flat',
@@ -448,9 +409,8 @@ export async function seedDatabase() {
     },
   })
 
-  await db.orm.public.ShippingRule.create({
+  await prisma.shippingRule.create({
     data: {
-      id: 'ship-rule-1-free',
       tenantId: tenant1.id,
       name: 'Ücretsiz Kargo',
       type: 'free_shipping',
@@ -461,9 +421,8 @@ export async function seedDatabase() {
     },
   })
 
-  await db.orm.public.ShippingRule.create({
+  await prisma.shippingRule.create({
     data: {
-      id: 'ship-rule-2-flat',
       tenantId: tenant2.id,
       name: 'Hızlı Kargo',
       type: 'flat',
@@ -475,9 +434,8 @@ export async function seedDatabase() {
   console.log('✅ Shipping rules created')
 
   // Coupons
-  await db.orm.public.Coupon.create({
+  await prisma.coupon.create({
     data: {
-      id: 'coupon-1',
       tenantId: tenant1.id,
       code: 'HOSGELDIN',
       description: 'Yeni müşterilere hoşgeldin indirimi',
@@ -488,9 +446,8 @@ export async function seedDatabase() {
     },
   })
 
-  await db.orm.public.Coupon.create({
+  await prisma.coupon.create({
     data: {
-      id: 'coupon-2',
       tenantId: tenant2.id,
       code: 'TEKNO50',
       description: '50 TL indirim kuponu',
@@ -503,9 +460,8 @@ export async function seedDatabase() {
   console.log('✅ Coupons created')
 
   // CMS Pages
-  await db.orm.public.Page.create({
+  await prisma.page.create({
     data: {
-      id: 'page-1-about',
       tenantId: tenant1.id,
       title: 'Hakkımızda',
       slug: 'hakkimizda',
@@ -516,9 +472,8 @@ export async function seedDatabase() {
     },
   })
 
-  await db.orm.public.Page.create({
+  await prisma.page.create({
     data: {
-      id: 'page-2-about',
       tenantId: tenant2.id,
       title: 'Hakkımızda',
       slug: 'hakkimizda',
@@ -533,14 +488,8 @@ export async function seedDatabase() {
   console.log('✅ Database seeding completed!')
   console.log('\n📋 Demo Credentials:')
   console.log('Super Admin: admin@posa360.com / admin123')
-  console.log('Merchant 1 (Shop Mağaza): ahmet@shopmagaza.com / merchant123')
-  console.log('Merchant 2 (Elektronik Dünyası): mehmet@elektronikdunya.com / merchant123')
+  console.log('Merchant 1: ahmet@shopmagaza.com / merchant123')
+  console.log('Merchant 2: mehmet@elektronikdunya.com / merchant123')
   console.log('Customer 1: musteri@example.com / customer123')
   console.log('Customer 2: ali@example.com / customer123')
-  console.log('\n🌐 Test URLs:')
-  console.log('Super Admin: http://localhost:43210/super-admin')
-  console.log('Tenant 1 Storefront (subdomain): http://shopmagaza.localhost:43210')
-  console.log('Tenant 1 Admin: http://shopmagaza.localhost:43210/admin')
-  console.log('Tenant 2 Storefront (custom domain): http://shopcem.local:43210 (add to /etc/hosts)')
-  console.log('Tenant 2 Admin: http://admin.shopcem.local:43210 (add to /etc/hosts)')
 }

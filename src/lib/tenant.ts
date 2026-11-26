@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { db } from '@/prisma/db'
+import prisma from './db'
 
 export type TenantContext = {
   id: string
@@ -45,17 +45,11 @@ export async function getTenantContext(): Promise<TenantContext | null> {
   }
   
   // Tenant'ı bul - custom domain veya slug ile
-  let tenant
-  
-  if (isCustomDomain) {
-    tenant = await db.orm.public.Tenant
-      .where({ customDomain: tenantIdentifier })
-      .first()
-  } else {
-    tenant = await db.orm.public.Tenant
-      .where({ slug: tenantIdentifier })
-      .first()
-  }
+  const tenant = await prisma.tenant.findFirst({
+    where: isCustomDomain
+      ? { customDomain: tenantIdentifier }
+      : { slug: tenantIdentifier },
+  })
   
   if (!tenant) {
     return null

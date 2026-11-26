@@ -1,5 +1,5 @@
 import { getTenantContext } from '@/lib/tenant'
-import { db } from '@/prisma/db'
+import prisma from '@/lib/db'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
@@ -15,9 +15,36 @@ export default async function StorefrontHome() {
     return <div>Mağaza bulunamadı</div>
   }
 
-  // Featured products - will be populated when database is running
-  const featuredProducts: any[] = []
-  const categories: any[] = []
+  // Featured products
+  const featuredProducts = await prisma.product.findMany({
+    where: {
+      tenantId: tenant.id,
+      isActive: true,
+      isFeatured: true,
+    },
+    include: {
+      images: {
+        orderBy: { sortOrder: 'asc' },
+        take: 1,
+      },
+      categories: {
+        include: {
+          category: true,
+        },
+      },
+    },
+    take: 8,
+  })
+
+  // Categories
+  const categories = await prisma.category.findMany({
+    where: {
+      tenantId: tenant.id,
+      isActive: true,
+    },
+    orderBy: { sortOrder: 'asc' },
+    take: 6,
+  })
 
   return (
     <div>
