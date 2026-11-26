@@ -5,7 +5,7 @@
 set -euo pipefail
 
 echo "Production deploy is CI-driven (see .github/workflows/deploy.yml)."
-echo "Do NOT run next build on the 1 GB droplet."
+echo "Do NOT run next build on the 2 GB droplet (build still runs in CI)."
 echo ""
 echo "Manual activate (after rsync):"
 echo "  APP_ROOT=/opt/posa/apps/eticaret"

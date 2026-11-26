@@ -13,13 +13,13 @@ EnvironmentFile=/opt/posa/apps/eticaret/.env
 Environment=NODE_ENV=production
 Environment=PORT=3030
 Environment=HOSTNAME=127.0.0.1
-Environment=NODE_OPTIONS=--max-old-space-size=384
+Environment=NODE_OPTIONS=--max-old-space-size=512
 ExecStart=/usr/bin/node server.js
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
-# Soft memory limit hint (1 GB shared box)
-MemoryMax=512M
+# Soft memory limit (2 GB shared box)
+MemoryMax=768M
 
 # Logging
 StandardOutput=journal

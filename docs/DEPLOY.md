@@ -7,11 +7,11 @@ Bu uygulama **posa360.com apex/www’yi kullanmaz**. Apex’te zaten çalışan 
 | `eticaret.posa360.com` | Marketing (`/`, `/paketler`, `/iletisim`, yasal) + `/kayit?plan=` + `/login` + süper admin (`/admin` → `/super-admin`) |
 | `panel.posa360.com` | Süper admin alias (isteğe bağlı) |
 | `{slug}.posa360.com` | Mağaza vitrini + `/admin` (nginx wildcard; mevcut exact `server_name` blokları kazanır) |
-| `örnek.com` / `admin.örnek.com` | Merchant özel domain (TXT doğrulama + certbot) |
+| `örnek.com` / `admin.örnek.com` | Merchant özel domain (TXT doğrulama; SSL sahibi yönetir) |
 
 **Yok:** Docker Compose production, Caddy. Stack: **nginx (80/443)** + **systemd `posa-eticaret` (:3030)** + **native PostgreSQL 16**.
 
-Sunucu: DigitalOcean droplet `206.189.8.235`, Ubuntu 24.04, 1 GB RAM + 2 GB swap. **Sunucuda `next build` yapılmaz.**
+Sunucu: DigitalOcean droplet `206.189.8.235`, Ubuntu 24.04, **2 GB RAM**. **Sunucuda `next build` yapılmaz** (CI build + rsync).
 
 ---
 
@@ -57,7 +57,6 @@ SQL
 ```bash
 sudo mkdir -p /opt/posa/apps/eticaret/{releases,backups}
 sudo mkdir -p /etc/nginx/sites-available/posa-eticaret-custom
-# Deploy kullanıcısı (ör. posa) sahibi olsun
 sudo chown -R posa:posa /opt/posa/apps/eticaret
 
 cp .env.production.example /opt/posa/apps/eticaret/.env
@@ -65,12 +64,10 @@ nano /opt/posa/apps/eticaret/.env
 chmod 600 /opt/posa/apps/eticaret/.env
 ```
 
-Önemli değişkenler: `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL=https://eticaret.posa360.com`, `NEXT_PUBLIC_*`, `CERT_AGENT_SECRET`.
-
-`posa` kullanıcısının `docker` gerekmez; `systemctl restart posa-eticaret` için passwordless sudo önerilir:
+Önemli değişkenler: `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL=https://eticaret.posa360.com`, `NEXT_PUBLIC_*`.
 
 ```bash
-echo 'posa ALL=(root) NOPASSWD: /bin/systemctl restart posa-eticaret, /bin/systemctl reload nginx, /usr/sbin/nginx' | sudo tee /etc/sudoers.d/posa-eticaret
+echo 'posa ALL=(root) NOPASSWD: /bin/systemctl restart posa-eticaret' | sudo tee /etc/sudoers.d/posa-eticaret
 ```
 
 Node 22 sunucuda kurulu olmalı (`node -v`); yalnızca **çalıştırma** için — build CI’da.
@@ -86,7 +83,7 @@ sudo systemctl enable posa-eticaret
 # İlk release gelene kadar start etme; Actions ilk deploy’da restart eder
 ```
 
-Port **3030**, `NODE_OPTIONS=--max-old-space-size=384`, `WorkingDirectory=/opt/posa/apps/eticaret/current`.
+Port **3030**, `NODE_OPTIONS=--max-old-space-size=512`, `WorkingDirectory=/opt/posa/apps/eticaret/current`.
 
 ---
 
@@ -94,41 +91,24 @@ Port **3030**, `NODE_OPTIONS=--max-old-space-size=384`, `WorkingDirectory=/opt/p
 
 ```bash
 sudo cp deploy/nginx/eticaret.conf /etc/nginx/sites-available/posa-eticaret.conf
+# ssl_certificate yollarını kendi sertifikalarınıza göre düzenleyin (PLACEHOLDER)
 sudo ln -sf /etc/nginx/sites-available/posa-eticaret.conf /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Wildcard + hub aynı upstream `127.0.0.1:3030`. Diğer ürünlerin exact bloklarına dokunma.
+Wildcard + hub aynı upstream `127.0.0.1:3030`. Diğer ürünlerin exact bloklarına dokunma. Özel domain örneği: `deploy/nginx/custom-domains.conf.example`.
 
-### Wildcard TLS (dns-digitalocean)
+### SSL (sahibi yönetir)
 
-```bash
-sudo apt install -y certbot python3-certbot-dns-digitalocean python3-certbot-nginx
-sudo mkdir -p /root/.secrets
-sudo nano /root/.secrets/do.ini   # dns_digitalocean_token = dop_v1_...
-sudo chmod 600 /root/.secrets/do.ini
+Bu repo sertifika otomasyonu içermez. nginx conf’taki yolları kendi cert’lerinize göre güncelleyin. Gerekli sertifikalar:
 
-sudo certbot certonly \
-  --dns-digitalocean \
-  --dns-digitalocean-credentials /root/.secrets/do.ini \
-  -d '*.posa360.com' \
-  --email admin@posa360.com --agree-tos -n
-```
+| Sertifika | Kullanım |
+|-----------|----------|
+| `eticaret.posa360.com` | Hub (isteğe bağlı aynı cert’e `panel.posa360.com` SAN) |
+| `*.posa360.com` (wildcard) | Mağaza subdomainleri `{slug}.posa360.com` |
+| Her özel domain | `örnek.com` (+ isteğe bağlı `www`) **ve** `admin.örnek.com` |
 
-Sertifika yolunu `deploy/nginx/eticaret.conf` içindeki `ssl_certificate` satırlarıyla eşleştir (certbot live dizin adı farklı olabilir).
-
-### Özel domain sertifikaları
-
-```bash
-sudo cp deploy/scripts/issue-domain-cert.sh /usr/local/sbin/posa-eticaret-issue-domain-cert.sh
-sudo chmod +x /usr/local/sbin/posa-eticaret-issue-domain-cert.sh
-
-# Her 5 dk
-echo '*/5 * * * * root API_BASE=https://eticaret.posa360.com /usr/local/sbin/posa-eticaret-issue-domain-cert.sh >> /var/log/posa-eticaret-certs.log 2>&1' \
-  | sudo tee /etc/cron.d/posa-eticaret-certs
-```
-
-Script `GET /api/internal/pending-certs` (header `X-Cert-Agent-Secret`) ile `sslStatus=pending|failed` doğrulanmış domainleri alır; `certbot --nginx` ile `domain` + `www` + `admin.domain` sertifikası çıkarır; vhost yazar; **yalnızca `nginx -t` başarılıysa** reload eder; sonucu API’ye yazar.
+Reload öncesi her zaman: `sudo nginx -t`.
 
 ---
 
@@ -152,7 +132,7 @@ ssh-copy-id -i ./posa_eticaret_deploy.pub posa@206.189.8.235
 # Private içeriği → VPS_SSH_KEY
 ```
 
-İlk seferde Actions’ı çalıştırmadan önce dizin + `.env` + nginx + systemd hazır olmalı. İlk release rsync ile gelir; `current` henüz yokken activate script oluşturur.
+İlk seferde Actions’ı çalıştırmadan önce dizin + `.env` + nginx + systemd hazır olmalı.
 
 ---
 
@@ -161,8 +141,7 @@ ssh-copy-id -i ./posa_eticaret_deploy.pub posa@206.189.8.235
 ```bash
 sudo cp scripts/backup-db.sh /opt/posa/apps/eticaret/backup-db.sh
 sudo chmod +x /opt/posa/apps/eticaret/backup-db.sh
-# cron (posa):
-# 15 3 * * * /opt/posa/apps/eticaret/backup-db.sh >> /var/log/posa-eticaret-backup.log 2>&1
+# cron: 15 3 * * * /opt/posa/apps/eticaret/backup-db.sh >> /var/log/posa-eticaret-backup.log 2>&1
 ```
 
 Restore: `gunzip -c /opt/posa/apps/eticaret/backups/….sql.gz | psql "$DATABASE_URL"`.
