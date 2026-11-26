@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button'
 
 const STATUS_FLOW = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
-  CONFIRMED: ['PROCESSING', 'CANCELLED'],
-  PROCESSING: ['SHIPPED', 'CANCELLED'],
+  CONFIRMED: ['PREPARING', 'CANCELLED'],
+  PREPARING: ['SHIPPED', 'CANCELLED'],
   SHIPPED: ['DELIVERED'],
   DELIVERED: [],
   CANCELLED: [],
@@ -17,7 +17,7 @@ const STATUS_FLOW = {
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Bekliyor',
   CONFIRMED: 'Onaylandı',
-  PROCESSING: 'Hazırlanıyor',
+  PREPARING: 'Hazırlanıyor',
   SHIPPED: 'Kargoda',
   DELIVERED: 'Teslim Edildi',
   CANCELLED: 'İptal Edildi',

@@ -23,10 +23,10 @@ export default async function TenantDetailPage({ params }: { params: { id: strin
     take: 10,
   })
 
-  const totalRevenue = orders.reduce((sum, o) => sum + parseFloat(o.totalAmount.toString()), 0)
+  const totalRevenue = orders.reduce((sum, o) => sum + parseFloat(o.total.toString()), 0)
   const monthlyRevenue = orders
     .filter((o) => new Date(o.createdAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
-    .reduce((sum, o) => sum + parseFloat(o.totalAmount.toString()), 0)
+    .reduce((sum, o) => sum + parseFloat(o.total.toString()), 0)
 
   const tenureDays = Math.floor((Date.now() - tenant.createdAt.getTime()) / (24 * 60 * 60 * 1000))
 
@@ -110,7 +110,7 @@ export default async function TenantDetailPage({ params }: { params: { id: strin
                       <div className="text-sm text-gray-500">{formatDate(order.createdAt)}</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-medium">{formatCurrency(parseFloat(order.totalAmount.toString()))}</div>
+                      <div className="font-medium">{formatCurrency(parseFloat(order.total.toString()))}</div>
                       <div className="text-sm text-gray-500">{order.status}</div>
                     </div>
                   </div>

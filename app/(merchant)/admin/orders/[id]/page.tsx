@@ -26,7 +26,6 @@ export default async function OrderDetailPage({
       items: {
         include: {
           product: { include: { images: { take: 1 } } },
-          variant: true,
         },
       },
       payments: true,
@@ -41,7 +40,7 @@ export default async function OrderDetailPage({
   const statusColors: Record<string, string> = {
     PENDING: 'bg-yellow-100 text-yellow-800',
     CONFIRMED: 'bg-blue-100 text-blue-800',
-    PROCESSING: 'bg-indigo-100 text-indigo-800',
+    PREPARING: 'bg-indigo-100 text-indigo-800',
     SHIPPED: 'bg-purple-100 text-purple-800',
     DELIVERED: 'bg-green-100 text-green-800',
     CANCELLED: 'bg-red-100 text-red-800',
@@ -133,19 +132,19 @@ export default async function OrderDetailPage({
                   <span>Kargo:</span>
                   <span>{formatCurrency(parseFloat(order.shippingCost.toString()))}</span>
                 </div>
-                {order.discount > 0 && (
+                {order.discountAmount > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
                     <span>İndirim:</span>
-                    <span>-{formatCurrency(parseFloat(order.discount.toString()))}</span>
+                    <span>-{formatCurrency(parseFloat(order.discountAmount.toString()))}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
                   <span>KDV (%20):</span>
-                  <span>{formatCurrency(parseFloat(order.tax.toString()))}</span>
+                  <span>{formatCurrency(parseFloat(order.taxAmount.toString()))}</span>
                 </div>
                 <div className="flex justify-between font-bold text-lg pt-2 border-t">
                   <span>Toplam:</span>
-                  <span>{formatCurrency(parseFloat(order.totalAmount.toString()))}</span>
+                  <span>{formatCurrency(parseFloat(order.total.toString()))}</span>
                 </div>
               </div>
             </CardContent>

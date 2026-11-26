@@ -40,15 +40,15 @@ export default async function CouponsPage() {
                 <tr key={coupon.id}>
                   <td className="px-6 py-4 font-mono font-bold">{coupon.code}</td>
                   <td className="px-6 py-4">
-                    {coupon.discountType === 'PERCENTAGE'
-                      ? `%${coupon.discountValue}`
-                      : `₺${coupon.discountValue}`}
+                    {coupon.type === 'percentage'
+                      ? `%${coupon.value}`
+                      : `₺${coupon.value}`}
                   </td>
                   <td className="px-6 py-4">
-                    {coupon.usageCount} / {coupon.maxUsage || '∞'}
+                    {coupon.usageCount} / {coupon.usageLimit || '∞'}
                   </td>
                   <td className="px-6 py-4 text-sm">
-                    {formatDate(coupon.validFrom)} - {formatDate(coupon.validTo)}
+                    {coupon.startsAt ? formatDate(coupon.startsAt) : '-'} - {coupon.endsAt ? formatDate(coupon.endsAt) : '-'}
                   </td>
                   <td className="px-6 py-4">
                     <span

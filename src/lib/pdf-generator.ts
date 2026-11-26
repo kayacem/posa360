@@ -50,7 +50,7 @@ export async function generateInvoicePDF(order: any) {
   
   doc.setFontSize(14)
   doc.text('TOPLAM:', 120, y)
-  doc.text(`${parseFloat(order.totalAmount).toFixed(2)} TL`, 180, y, { align: 'right' })
+  doc.text(`${parseFloat(order.total).toFixed(2)} TL`, 180, y, { align: 'right' })
   
   return doc
 }

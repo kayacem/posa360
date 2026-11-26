@@ -44,7 +44,7 @@ export default async function CustomerOrdersPage() {
                 <div className="text-sm text-gray-500">{formatDate(order.createdAt)}</div>
               </div>
               <div className="text-right">
-                <div className="font-bold">{formatCurrency(parseFloat(order.totalAmount.toString()))}</div>
+                <div className="font-bold">{formatCurrency(parseFloat(order.total.toString()))}</div>
                 <div className={`text-sm px-2 py-1 rounded ${
                   order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
                   order.status === 'SHIPPED' ? 'bg-blue-100 text-blue-800' :
@@ -65,7 +65,7 @@ export default async function CustomerOrdersPage() {
                     <div className="font-medium">{item.product.name}</div>
                     <div className="text-sm text-gray-500">{item.quantity} adet</div>
                   </div>
-                  <div>{formatCurrency(parseFloat(item.subtotal.toString()))}</div>
+                  <div>{formatCurrency(parseFloat(item.total.toString()))}</div>
                 </div>
               ))}
             </div>

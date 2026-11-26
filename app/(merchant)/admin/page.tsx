@@ -17,7 +17,7 @@ export default async function MerchantDashboard() {
     prisma.order.count({
       where: {
         tenantId: tenantContext.tenant.id,
-        status: { in: ['PENDING', 'PROCESSING'] },
+        status: { in: ['PENDING', 'PREPARING'] },
       },
     }),
   ])
@@ -32,7 +32,7 @@ export default async function MerchantDashboard() {
     take: 5,
   })
 
-  const totalRevenue = recentOrders.reduce((sum, order) => sum + parseFloat(order.totalAmount.toString()), 0)
+  const totalRevenue = recentOrders.reduce((sum, order) => sum + parseFloat(order.total.toString()), 0)
 
   return (
     <div>
@@ -102,7 +102,7 @@ export default async function MerchantDashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-medium">{formatCurrency(parseFloat(order.totalAmount.toString()))}</div>
+                    <div className="font-medium">{formatCurrency(parseFloat(order.total.toString()))}</div>
                     <div className="text-sm text-gray-500">{order.status}</div>
                   </div>
                 </div>

@@ -46,7 +46,7 @@ export default async function CustomersPage() {
                 <tr key={customer.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div>
-                      <div className="font-medium">{customer.name}</div>
+                      <div className="font-medium">{customer.firstName} {customer.lastName}</div>
                       <div className="text-sm text-gray-500">{customer.email}</div>
                     </div>
                   </td>
