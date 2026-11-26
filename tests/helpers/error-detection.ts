@@ -4,8 +4,25 @@ export async function checkForErrors(page: Page, testName: string) {
   // Check for Next.js error overlay (nextjs-portal shadow DOM)
   const errorPortal = await page.locator('nextjs-portal').count()
   if (errorPortal > 0) {
-    const portalText = await page.locator('nextjs-portal').textContent()
-    throw new Error(`Next.js error overlay detected in ${testName}: ${portalText?.substring(0, 200)}`)
+    // Try to get meaningful error content from the shadow DOM
+    const portalText = await page.locator('nextjs-portal').evaluateHandle((el: any) => {
+      if (el.shadowRoot) {
+        const text = el.shadowRoot.textContent || ''
+        return text.trim()
+      }
+      return el.textContent || ''
+    }).then(handle => handle.jsonValue())
+    
+    // Only fail if there's actual error content with error keywords
+    // (not just CSS, Bootstrap, or empty overlay)
+    if (portalText && 
+        (portalText.includes('Error:') || 
+         portalText.includes('TypeError') || 
+         portalText.includes('Runtime Error') ||
+         portalText.includes('Unhandled') ||
+         portalText.includes('Failed to'))) {
+      throw new Error(`Next.js error overlay detected in ${testName}: ${portalText.substring(0, 300)}`)
+    }
   }
 
   // Check for Runtime Error text in body
