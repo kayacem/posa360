@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
           maxStaff: plan.maxStaff,
           trialEndsAt,
           billingInterval,
+          platformSslStatus: 'pending',
         },
       })
 

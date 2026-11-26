@@ -101,6 +101,9 @@ model Tenant {
   /// When set, tenant is in trial until this date
   trialEndsAt   DateTime?
   billingInterval String @default("monthly") // monthly | yearly
+
+  /// SSL for {slug}.posa360.com — pending | issued | failed (certbot HTTP-01 cron)
+  platformSslStatus String @default("pending")
   
   notes         String?
   

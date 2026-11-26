@@ -24,6 +24,10 @@ export default async function TenantDetailPage({
         orderBy: { period: 'desc' },
         take: 12,
       },
+      domainVerifications: {
+        orderBy: { updatedAt: 'desc' },
+        take: 5,
+      },
     },
   })
 
@@ -99,12 +103,32 @@ export default async function TenantDetailPage({
               <div className="mb-4">
                 <label className="text-sm text-gray-500">Subdomain</label>
                 <div className="font-medium">{tenant.slug}.posa360.com</div>
+                <div className="text-xs mt-1">
+                  {tenant.platformSslStatus === 'issued' ? (
+                    <span className="text-green-600">SSL aktif</span>
+                  ) : tenant.platformSslStatus === 'failed' ? (
+                    <span className="text-red-600">SSL başarısız — cron yeniden deneyecek</span>
+                  ) : (
+                    <span className="text-amber-700">SSL bekleniyor (HTTP açık)</span>
+                  )}
+                </div>
               </div>
               {tenant.customDomain ? (
                 <div>
                   <label className="text-sm text-gray-500">Özel Domain</label>
                   <div className="font-medium">{tenant.customDomain}</div>
                   <div className="text-xs text-green-600 mt-1">✓ Doğrulanmış</div>
+                  {(() => {
+                    const dv = tenant.domainVerifications.find((d) => d.domain === tenant.customDomain)
+                    const st = dv?.sslStatus || 'pending'
+                    if (st === 'issued' || st === 'active') {
+                      return <div className="text-xs text-green-600 mt-1">SSL aktif</div>
+                    }
+                    if (st === 'failed') {
+                      return <div className="text-xs text-red-600 mt-1">SSL başarısız</div>
+                    }
+                    return <div className="text-xs text-amber-700 mt-1">SSL bekleniyor (HTTP açık)</div>
+                  })()}
                 </div>
               ) : (
                 <DomainBindingForm tenantId={tenant.id} />

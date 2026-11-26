@@ -87,60 +87,53 @@ Port **3030**, `NODE_OPTIONS=--max-old-space-size=512`, `WorkingDirectory=/opt/p
 
 ---
 
-## 5. nginx
+## 5. nginx + SSL (HTTP-01, wildcard yok)
+
+**Yok:** DigitalOcean DNS token, wildcard `*.posa360.com` sertifikası.  
+**Var:** `certbot --nginx` HTTP-01, hostname başına sertifika.
 
 ```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo mkdir -p /etc/nginx/sites-available/posa-eticaret-hosts
+sudo touch /etc/nginx/sites-available/posa-eticaret-hosts/.keep.conf
+
 sudo cp deploy/nginx/eticaret.conf /etc/nginx/sites-available/posa-eticaret.conf
 sudo ln -sf /etc/nginx/sites-available/posa-eticaret.conf /etc/nginx/sites-enabled/
-# Sertifika yollarını certbot live dizin adıyla eşleştirin; sonra:
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Wildcard + hub aynı upstream `127.0.0.1:3030`. Diğer ürünlerin exact bloklarına dokunma.
+- Hub + catch-all `*.posa360.com` → `127.0.0.1:3030`
+- Catch-all **yalnızca HTTP** (sertifika yokken HTTPS yönlendirmesi yok)
+- Exact `server_name` (randevu, yonet, …) diğer conf’larda kazanır — dokunma
 
-### Platform TLS — certbot dns-digitalocean
-
-Wildcard `*.posa360.com` + hub `eticaret.posa360.com` (isteğe bağlı `panel.posa360.com` SAN):
+### Hub sertifikası (kurulumda bir kez)
 
 ```bash
-sudo apt install -y certbot python3-certbot-dns-digitalocean python3-certbot-nginx
-sudo mkdir -p /root/.secrets
-sudo nano /root/.secrets/do.ini   # dns_digitalocean_token = dop_v1_...
-sudo chmod 600 /root/.secrets/do.ini
-
-# Wildcard for store subdomains
-sudo certbot certonly \
-  --dns-digitalocean \
-  --dns-digitalocean-credentials /root/.secrets/do.ini \
-  --cert-name posa360.com-wildcard \
-  -d '*.posa360.com' \
-  --email admin@posa360.com --agree-tos -n
-
-# Hub (eticaret + optional panel)
-sudo certbot certonly \
-  --dns-digitalocean \
-  --dns-digitalocean-credentials /root/.secrets/do.ini \
-  --cert-name eticaret.posa360.com \
-  -d eticaret.posa360.com -d panel.posa360.com \
-  --email admin@posa360.com --agree-tos -n
+sudo certbot --nginx -d eticaret.posa360.com -d panel.posa360.com \
+  --non-interactive --agree-tos -m admin@posa360.com
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-`deploy/nginx/eticaret.conf` içindeki `ssl_certificate` yollarını live dizin adlarıyla eşleştirin. Reload öncesi her zaman: `sudo nginx -t`.
+### Mağaza + özel domain sertifikaları (cron, 2–5 dk)
 
-### Özel domain sertifikaları (cron)
+DNS’te **A `*` → 206.189.8.235** olmalı ki yeni `{slug}.posa360.com` çözülsün.
 
-Doğrulanmış merchant domain’ler (`sslStatus=pending|failed`) için root cron:
+Cron `GET /api/internal/pending-certs` ile bekleyen host’ları alır:
+
+| Tür | Host’lar | Tetik |
+|-----|----------|--------|
+| Platform | `{slug}.posa360.com` | `Tenant.platformSslStatus` = pending/failed |
+| Özel | `domain` + `admin.domain` | doğrulanmış + `DomainVerification.sslStatus` pending/failed |
 
 ```bash
 sudo cp deploy/scripts/issue-domain-cert.sh /usr/local/sbin/posa-eticaret-issue-domain-cert.sh
 sudo chmod +x /usr/local/sbin/posa-eticaret-issue-domain-cert.sh
-sudo mkdir -p /etc/nginx/sites-available/posa-eticaret-custom
 
-echo '*/5 * * * * root API_BASE=https://eticaret.posa360.com /usr/local/sbin/posa-eticaret-issue-domain-cert.sh >> /var/log/posa-eticaret-certs.log 2>&1' \
+echo '*/3 * * * * root API_BASE=https://eticaret.posa360.com /usr/local/sbin/posa-eticaret-issue-domain-cert.sh >> /var/log/posa-eticaret-certs.log 2>&1' \
   | sudo tee /etc/cron.d/posa-eticaret-certs
 ```
 
-Script `GET /api/internal/pending-certs` (`X-Cert-Agent-Secret`) ile domain alır; `certbot --nginx` ile `domain` + `www` + `admin.domain` sertifikası çıkarır; yalnızca `posa-eticaret-custom/` altına vhost yazar; **yalnızca `nginx -t` başarılıysa** reload eder — diğer server block’lara dokunmaz.
+Her host için: `certbot certonly --nginx -d <host> …` → `/etc/nginx/sites-available/posa-eticaret-hosts/<host>.conf` (HTTP→HTTPS + 443 proxy) → **`nginx -t`** → reload → API’ye `issued` (panelde **SSL aktif**). Başarısızsa `failed`, cron yeniden dener. Diğer ürün bloklarına yazılmaz.
 
 ---
 

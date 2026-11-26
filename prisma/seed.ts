@@ -126,6 +126,7 @@ async function main() {
       primaryColor: '#0f766e',
       secondaryColor: '#ffffff',
       bannerUrl: null,
+      platformSslStatus: 'issued',
       createdAt: tenant1CreatedAt,
     },
   })
@@ -185,6 +186,7 @@ async function main() {
       nextPaymentDue: monthsAgo(0),
       primaryColor: '#1d4ed8',
       secondaryColor: '#ffffff',
+      platformSslStatus: 'issued',
       createdAt: tenant2CreatedAt,
     },
   })
