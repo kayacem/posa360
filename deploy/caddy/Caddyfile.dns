@@ -1,0 +1,26 @@
+{
+	email {$ACME_EMAIL}
+	on_demand_tls {
+		ask http://app:3000/api/internal/domain-check
+		interval 2m
+		burst 5
+	}
+}
+
+# Platform apex + wildcard via Cloudflare DNS challenge
+posa360.com, *.posa360.com {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	encode gzip
+	reverse_proxy app:3000
+}
+
+# Merchant custom domains (On-Demand TLS; ask endpoint gates issuance)
+https:// {
+	tls {
+		on_demand
+	}
+	encode gzip
+	reverse_proxy app:3000
+}

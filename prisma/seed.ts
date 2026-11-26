@@ -133,7 +133,21 @@ async function main() {
       },
     },
   })
-  console.log('✅ 2 tenants, owners, and staff created')
+
+  await prisma.domainVerification.create({
+    data: {
+      tenantId: tenant2.id,
+      domain: 'shopcem.local',
+      verificationToken: 'posa360-verify-seed-shopcem-local',
+      isVerified: true,
+      verifiedAt: new Date(),
+      sslStatus: 'active',
+      requiredRecords: JSON.stringify([
+        { type: 'TXT', host: '_posa360-verification.shopcem.local', value: 'posa360-verify-seed-shopcem-local' },
+      ]),
+    },
+  })
+  console.log('✅ 2 tenants, owners, staff, and verified custom domain created')
 
   // Tenant payments (last 6 months each)
   for (const tenant of [

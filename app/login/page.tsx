@@ -35,7 +35,11 @@ export default function LoginPage() {
       
       if (session?.user?.role === 'SUPER_ADMIN') {
         router.push('/super-admin')
-      } else if (session?.user?.role === 'TENANT_OWNER' || session?.user?.role === 'TENANT_ADMIN') {
+      } else if (
+        session?.user?.role === 'TENANT_OWNER' ||
+        session?.user?.role === 'TENANT_ADMIN' ||
+        session?.user?.role === 'TENANT_STAFF'
+      ) {
         router.push('/admin')
       } else {
         router.push('/')
