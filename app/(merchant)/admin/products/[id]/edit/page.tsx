@@ -1,0 +1,43 @@
+import { getTenantContext } from '@/lib/tenant'
+import prisma from '@/lib/db'
+import { notFound } from 'next/navigation'
+import { ProductEditForm } from '@/components/merchant/ProductEditForm'
+
+export default async function EditProductPage({ params }: { params: { id: string } }) {
+  const tenantContext = await getTenantContext()
+
+  if (!tenantContext) {
+    return <div>Tenant bulunamadı</div>
+  }
+
+  const product = await prisma.product.findFirst({
+    where: { id: params.id, tenantId: tenantContext.tenant.id },
+    include: {
+      images: true,
+      variants: true,
+      categories: { include: { category: true } },
+      brand: true,
+    },
+  })
+
+  if (!product) {
+    notFound()
+  }
+
+  const categories = await prisma.category.findMany({
+    where: { tenantId: tenantContext.tenant.id, isActive: true },
+    orderBy: { name: 'asc' },
+  })
+
+  const brands = await prisma.brand.findMany({
+    where: { tenantId: tenantContext.tenant.id, isActive: true },
+    orderBy: { name: 'asc' },
+  })
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold mb-6">Ürün Düzenle</h1>
+      <ProductEditForm product={product} categories={categories} brands={brands} />
+    </div>
+  )
+}

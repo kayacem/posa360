@@ -29,6 +29,12 @@ export default async function MerchantLayout({
               <Link href="/admin/orders" className="inline-flex items-center px-1 pt-1 text-sm font-medium">
                 Siparişler
               </Link>
+              <Link href="/admin/returns" className="inline-flex items-center px-1 pt-1 text-sm font-medium">
+                İadeler
+              </Link>
+              <Link href="/admin/coupons" className="inline-flex items-center px-1 pt-1 text-sm font-medium">
+                Kuponlar
+              </Link>
               <Link href="/admin/customers" className="inline-flex items-center px-1 pt-1 text-sm font-medium">
                 Müşteriler
               </Link>
