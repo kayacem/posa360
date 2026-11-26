@@ -22,6 +22,17 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
+# CI ships the release as one tarball (upload-artifact drops hidden dirs like .next)
+if [[ -f "$RELEASE_DIR/release.tgz" ]]; then
+  echo "==> Unpack release.tgz"
+  tar xzf "$RELEASE_DIR/release.tgz" -C "$RELEASE_DIR" --no-same-owner
+  rm -f "$RELEASE_DIR/release.tgz"
+fi
+if [[ ! -f "$RELEASE_DIR/.next/BUILD_ID" ]]; then
+  echo "Release has no .next/BUILD_ID — refusing to activate" >&2
+  exit 1
+fi
+
 # Service runs as an unprivileged user; release files must be readable/writable by it
 RUN_USER="${RUN_USER:-posa}"
 if [[ "$(id -u)" -eq 0 ]] && id "$RUN_USER" >/dev/null 2>&1; then
