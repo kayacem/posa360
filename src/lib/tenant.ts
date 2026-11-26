@@ -1,0 +1,88 @@
+import { headers } from 'next/headers'
+import { db } from '@/prisma/db'
+
+export type TenantContext = {
+  id: string
+  slug: string
+  name: string
+  customDomain: string | null
+  type: 'super-admin' | 'merchant-admin' | 'storefront'
+  settings: {
+    currency: string
+    locale: string
+    primaryColor: string
+    secondaryColor: string
+    logoUrl: string | null
+  }
+}
+
+export async function getTenantContext(): Promise<TenantContext | null> {
+  const headersList = await headers()
+  const tenantType = headersList.get('x-tenant-type')
+  
+  if (tenantType === 'super-admin') {
+    return {
+      id: 'super-admin',
+      slug: 'super-admin',
+      name: 'POSA360 Super Admin',
+      customDomain: null,
+      type: 'super-admin',
+      settings: {
+        currency: 'TRY',
+        locale: 'tr-TR',
+        primaryColor: '#000000',
+        secondaryColor: '#ffffff',
+        logoUrl: null,
+      },
+    }
+  }
+  
+  const tenantIdentifier = headersList.get('x-tenant-identifier')
+  const isCustomDomain = headersList.get('x-tenant-custom-domain')
+  
+  if (!tenantIdentifier) {
+    return null
+  }
+  
+  // Tenant'ı bul - custom domain veya slug ile
+  let tenant
+  
+  if (isCustomDomain) {
+    tenant = await db.orm.public.Tenant
+      .where({ customDomain: tenantIdentifier })
+      .first()
+  } else {
+    tenant = await db.orm.public.Tenant
+      .where({ slug: tenantIdentifier })
+      .first()
+  }
+  
+  if (!tenant) {
+    return null
+  }
+  
+  return {
+    id: tenant.id,
+    slug: tenant.slug,
+    name: tenant.name,
+    customDomain: tenant.customDomain,
+    type: (tenantType as 'merchant-admin' | 'storefront') || 'storefront',
+    settings: {
+      currency: tenant.currency,
+      locale: tenant.locale,
+      primaryColor: tenant.primaryColor,
+      secondaryColor: tenant.secondaryColor,
+      logoUrl: tenant.logoUrl,
+    },
+  }
+}
+
+export async function getTenantIdentifier(): Promise<string | null> {
+  const headersList = await headers()
+  return headersList.get('x-tenant-identifier')
+}
+
+export async function getTenantType(): Promise<'super-admin' | 'merchant-admin' | 'storefront' | null> {
+  const headersList = await headers()
+  return headersList.get('x-tenant-type') as any
+}

@@ -1,0 +1,810 @@
+// use prisma-8
+// POSA360 Multi-Tenant E-Commerce Platform Schema
+
+// ============================================
+// TENANT & SYSTEM MODELS
+// ============================================
+
+model Tenant {
+  id            String   @id @onCreate(cuid(2))
+  name          String
+  slug          String   @unique // subdomain veya path
+  customDomain  String?  @unique // opsiyonel özel domain (shopcem.com)
+  status        TenantStatus @default(ACTIVE)
+  plan          String   @default("basic") // subscription planı
+  
+  // CRM - Müşteri (Merchant) Bilgileri
+  companyName   String?
+  contactPerson String?
+  contactPhone  String?
+  contactEmail  String?
+  address       String?  // JSON: il, ilçe, etc
+  taxNumber     String?  // VKN
+  
+  // Subscription tracking
+  monthlyFee    Float    @default(0)
+  lastPaymentDate DateTime?
+  lastPaymentStatus PaymentStatusEnum @default(PENDING)
+  nextPaymentDue    DateTime?
+  
+  // Branding
+  logoUrl       String?
+  primaryColor  String   @default("#000000")
+  secondaryColor String  @default("#ffffff")
+  
+  // Settings
+  currency      String   @default("TRY")
+  locale        String   @default("tr-TR")
+  timezone      String   @default("Europe/Istanbul")
+  taxRate       Float    @default(0.20) // KDV %20
+  
+  // Subscription limits
+  maxProducts   Int      @default(100)
+  maxOrders     Int      @default(1000)
+  maxStaff      Int      @default(5)
+  
+  // Notes for super admin CRM
+  notes         String?
+  
+  createdAt     DateTime @default(now()) @onCreate(now())
+  updatedAt     temporal.UpdatedAt
+  
+  // Relations
+  users         TenantUser[]
+  products      Product[]
+  categories    Category[]
+  brands        Brand[]
+  orders        Order[]
+  customers     Customer[]
+  pages         Page[]
+  menus         Menu[]
+  coupons       Coupon[]
+  shippingRules ShippingRule[]
+  paymentSettings PaymentSetting[]
+  taxSettings   TaxSetting[]
+  auditLogs     AuditLog[]
+  domainVerifications DomainVerification[]
+  subscriptionPayments SubscriptionPayment[]
+}
+
+enum PaymentStatusEnum {
+  PENDING
+  PAID
+  OVERDUE
+  FAILED
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+  CANCELLED
+}
+
+model User {
+  id            String   @id @onCreate(cuid(2))
+  email         String   @unique
+  password      String
+  name          String
+  role          UserRole
+  
+  // Super admin için tenant bağlantısı yok
+  // Merchant staff için tenant bağlantısı var
+  tenantUsers   TenantUser[]
+  
+  createdAt     DateTime @default(now()) @onCreate(now())
+  updatedAt     temporal.UpdatedAt
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  TENANT_OWNER
+  TENANT_ADMIN
+  TENANT_STAFF
+}
+
+model TenantUser {
+  id          String   @id @onCreate(cuid(2))
+  tenantId    String
+  userId      String
+  role        UserRole
+  permissions String[] // JSON array of permissions
+  
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now()) @onCreate(now())
+  
+  @@unique([tenantId, userId])
+}
+
+// ============================================
+// CUSTOMER MODELS
+// ============================================
+
+model Customer {
+  id            String   @id @onCreate(cuid(2))
+  tenantId      String
+  
+  email         String
+  password      String?  // null ise guest checkout
+  firstName     String
+  lastName      String
+  phone         String?
+  
+  // Turkish ID
+  tckn          String?  // TC Kimlik No (bireysel)
+  vkn           String?  // Vergi Kimlik No (kurumsal)
+  
+  createdAt     DateTime @default(now()) @onCreate(now())
+  updatedAt     temporal.UpdatedAt
+  
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  addresses     Address[]
+  orders        Order[]
+  favorites     Favorite[]
+  reviews       Review[]
+  
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+model Address {
+  id            String   @id @onCreate(cuid(2))
+  customerId    String
+  
+  title         String   // "Ev", "İş" vs
+  firstName     String
+  lastName      String
+  phone         String
+  
+  // Turkish address format
+  addressLine1  String
+  addressLine2  String?
+  il            String   // İl (province)
+  ilce          String   // İlçe (district)
+  postalCode    String
+  
+  isDefault     Boolean  @default(false)
+  
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  @@index([customerId])
+}
+
+// ============================================
+// PRODUCT MODELS
+// ============================================
+
+model Category {
+  id          String   @id @onCreate(cuid(2))
+  tenantId    String
+  
+  name        String
+  slug        String
+  description String?
+  imageUrl    String?
+  parentId    String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  metaKeywords    String?
+  
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryTree")
+  products    ProductCategory[]
+  
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+}
+
+model Brand {
+  id          String   @id @onCreate(cuid(2))
+  tenantId    String
+  
+  name        String
+  slug        String
+  description String?
+  logoUrl     String?
+  isActive    Boolean  @default(true)
+  
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products    Product[]
+  
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+}
+
+model Product {
+  id            String   @id @onCreate(cuid(2))
+  tenantId      String
+  
+  name          String
+  slug          String
+  description   String?
+  shortDesc     String?
+  
+  sku           String?
+  barcode       String?
+  
+  // Pricing
+  price         Float
+  compareAtPrice Float?   // İndirimli fiyat gösterimi için
+  costPrice     Float?    // Maliyet
+  
+  // Inventory
+  trackInventory Boolean  @default(true)
+  stock         Int      @default(0)
+  lowStockThreshold Int?
+  
+  // Variant support
+  hasVariants   Boolean  @default(false)
+  
+  // Status
+  isActive      Boolean  @default(true)
+  isFeatured    Boolean  @default(false)
+  
+  // Tax
+  taxable       Boolean  @default(true)
+  
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  metaKeywords    String?
+  
+  // Brand
+  brandId       String?
+  
+  createdAt     DateTime @default(now()) @onCreate(now())
+  updatedAt     temporal.UpdatedAt
+  
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  brand         Brand?     @relation(fields: [brandId], references: [id])
+  images        ProductImage[]
+  categories    ProductCategory[]
+  variants      ProductVariant[]
+  orderItems    OrderItem[]
+  favorites     Favorite[]
+  reviews       Review[]
+  
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+}
+
+model ProductImage {
+  id          String   @id @onCreate(cuid(2))
+  productId   String
+  url         String
+  altText     String?
+  sortOrder   Int      @default(0)
+  
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  @@index([productId])
+}
+
+model ProductCategory {
+  productId   String
+  categoryId  String
+  
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  @@id([productId, categoryId])
+}
+
+model ProductVariant {
+  id          String   @id @onCreate(cuid(2))
+  productId   String
+  
+  name        String   // "Beden: M, Renk: Kırmızı"
+  sku         String?
+  barcode     String?
+  
+  price       Float?   // null ise ana ürün fiyatı
+  stock       Int      @default(0)
+  
+  isActive    Boolean  @default(true)
+  
+  // Variant options (JSON: {"Beden": "M", "Renk": "Kırmızı"})
+  options     String
+  
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  @@index([productId])
+}
+
+model Favorite {
+  id          String   @id @onCreate(cuid(2))
+  customerId  String
+  productId   String
+  
+  createdAt   DateTime @default(now()) @onCreate(now())
+  
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  @@unique([customerId, productId])
+}
+
+model Review {
+  id          String   @id @onCreate(cuid(2))
+  customerId  String
+  productId   String
+  
+  rating      Int      // 1-5
+  title       String?
+  comment     String?
+  
+  isApproved  Boolean  @default(false)
+  
+  createdAt   DateTime @default(now()) @onCreate(now())
+  
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  @@index([productId])
+}
+
+// ============================================
+// ORDER MODELS
+// ============================================
+
+model Order {
+  id            String   @id @onCreate(cuid(2))
+  tenantId      String
+  customerId    String
+  
+  orderNumber   String   @unique
+  
+  // Status
+  status        OrderStatus @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+  
+  // Totals
+  subtotal      Float
+  shippingCost  Float    @default(0)
+  taxAmount     Float
+  discountAmount Float   @default(0)
+  total         Float
+  
+  // Customer info (denormalized)
+  customerEmail    String
+  customerName     String
+  customerPhone    String?
+  
+  // Shipping address
+  shippingAddress  String   // JSON
+  
+  // Billing address (opsiyonel, farklı ise)
+  billingAddress   String?  // JSON
+  
+  // Notes
+  customerNote     String?
+  staffNote        String?
+  
+  // Coupon
+  couponCode       String?
+  
+  createdAt     DateTime @default(now()) @onCreate(now())
+  updatedAt     temporal.UpdatedAt
+  
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer      Customer    @relation(fields: [customerId], references: [id])
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+  payments      Payment[]
+  shipments     Shipment[]
+  returns       Return[]
+  
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([customerId])
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIAL_REFUND
+}
+
+model OrderItem {
+  id            String   @id @onCreate(cuid(2))
+  orderId       String
+  productId     String
+  
+  productName   String   // Denormalized
+  variantName   String?
+  sku           String?
+  
+  quantity      Int
+  price         Float    // Sipariş anındaki fiyat
+  total         Float
+  
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product       Product  @relation(fields: [productId], references: [id])
+  
+  @@index([orderId])
+}
+
+model OrderStatusHistory {
+  id          String   @id @onCreate(cuid(2))
+  orderId     String
+  
+  status      OrderStatus
+  note        String?
+  
+  createdAt   DateTime @default(now()) @onCreate(now())
+  createdBy   String?  // User ID
+  
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@index([orderId])
+}
+
+// ============================================
+// PAYMENT MODELS
+// ============================================
+
+model Payment {
+  id              String   @id @onCreate(cuid(2))
+  orderId         String
+  
+  provider        String   // "iyzico", "paytr", "bank_transfer", "cash_on_delivery"
+  method          String   // "credit_card", "bank_transfer", "cash"
+  
+  amount          Float
+  currency        String   @default("TRY")
+  
+  status          PaymentStatus @default(PENDING)
+  
+  // 3D Secure / Provider response
+  providerTransactionId String?
+  providerResponse      String?  // JSON
+  
+  // Bank transfer için
+  bankName        String?
+  accountHolder   String?
+  
+  createdAt       DateTime @default(now()) @onCreate(now())
+  updatedAt       temporal.UpdatedAt
+  
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@index([orderId])
+}
+
+model PaymentSetting {
+  id          String   @id @onCreate(cuid(2))
+  tenantId    String
+  
+  provider    String   // "iyzico", "paytr"
+  isActive    Boolean  @default(false)
+  isSandbox   Boolean  @default(true)
+  
+  // Encrypted credentials (JSON)
+  credentials String
+  
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@unique([tenantId, provider])
+}
+
+// ============================================
+// SHIPPING MODELS
+// ============================================
+
+model Shipment {
+  id              String   @id @onCreate(cuid(2))
+  orderId         String
+  
+  carrier         String   // "yurtici", "aras", "mng", "surat", "ptt", "mock"
+  trackingNumber  String?
+  trackingUrl     String?
+  
+  status          ShipmentStatus @default(PREPARING)
+  
+  // Label
+  labelUrl        String?
+  
+  // Tracking updates (JSON array)
+  trackingHistory String?
+  
+  // Desi/weight info
+  weight          Float?
+  desi            Float?
+  
+  shippedAt       DateTime?
+  deliveredAt     DateTime?
+  
+  createdAt       DateTime @default(now()) @onCreate(now())
+  updatedAt       temporal.UpdatedAt
+  
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@index([orderId])
+}
+
+enum ShipmentStatus {
+  PREPARING
+  SHIPPED
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+}
+
+model ShippingRule {
+  id          String   @id @onCreate(cuid(2))
+  tenantId    String
+  
+  name        String
+  type        String   // "flat", "weight_based", "free_shipping"
+  
+  // Conditions
+  minOrderAmount Float?
+  maxWeight      Float?
+  
+  // Cost
+  cost        Float    @default(0)
+  
+  isActive    Boolean  @default(true)
+  priority    Int      @default(0)
+  
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId])
+}
+
+// ============================================
+// RETURN MODELS
+// ============================================
+
+model Return {
+  id            String   @id @onCreate(cuid(2))
+  orderId       String
+  
+  returnNumber  String   @unique
+  
+  reason        String
+  description   String?
+  images        String[] // Array of image URLs
+  
+  status        ReturnStatus @default(REQUESTED)
+  
+  // Items to return (JSON array of {orderItemId, quantity})
+  items         String
+  
+  // Approval
+  approvedAt    DateTime?
+  approvedBy    String?  // User ID
+  rejectedReason String?
+  
+  // Return shipping
+  returnTrackingNumber String?
+  returnCarrier        String?
+  
+  // Refund
+  refundAmount  Float?
+  refundedAt    DateTime?
+  
+  createdAt     DateTime @default(now()) @onCreate(now())
+  updatedAt     temporal.UpdatedAt
+  
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@index([orderId])
+}
+
+enum ReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  SHIPPED_BACK
+  RECEIVED
+  REFUNDED
+}
+
+// ============================================
+// DISCOUNT MODELS
+// ============================================
+
+model Coupon {
+  id            String   @id @onCreate(cuid(2))
+  tenantId      String
+  
+  code          String
+  description   String?
+  
+  type          String   // "percentage", "fixed_amount"
+  value         Float
+  
+  // Conditions
+  minOrderAmount Float?
+  maxDiscountAmount Float?
+  usageLimit    Int?
+  usageCount    Int      @default(0)
+  
+  // Validity
+  startsAt      DateTime?
+  endsAt        DateTime?
+  
+  isActive      Boolean  @default(true)
+  
+  createdAt     DateTime @default(now()) @onCreate(now())
+  
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+// ============================================
+// CMS MODELS
+// ============================================
+
+model Page {
+  id          String   @id @onCreate(cuid(2))
+  tenantId    String
+  
+  title       String
+  slug        String
+  content     String   // HTML or Markdown
+  
+  isActive    Boolean  @default(true)
+  
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  
+  createdAt   DateTime @default(now()) @onCreate(now())
+  updatedAt   temporal.UpdatedAt
+  
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+}
+
+model Menu {
+  id          String   @id @onCreate(cuid(2))
+  tenantId    String
+  
+  name        String
+  location    String   // "header", "footer", "sidebar"
+  
+  // Items (JSON array)
+  items       String
+  
+  isActive    Boolean  @default(true)
+  
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@unique([tenantId, location])
+  @@index([tenantId])
+}
+
+// ============================================
+// SETTINGS MODELS
+// ============================================
+
+model TaxSetting {
+  id          String   @id @onCreate(cuid(2))
+  tenantId    String
+  
+  name        String
+  rate        Float    // KDV oranı (örn: 0.20 = %20)
+  
+  isDefault   Boolean  @default(false)
+  
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId])
+}
+
+// ============================================
+// DOMAIN VERIFICATION & CUSTOM DOMAINS
+// ============================================
+
+model DomainVerification {
+  id          String   @id @onCreate(cuid(2))
+  tenantId    String
+  
+  domain      String   @unique // shopcem.com
+  
+  // Verification via TXT record
+  verificationToken String @onCreate(cuid(2))
+  isVerified   Boolean  @default(false)
+  verifiedAt   DateTime?
+  
+  // SSL status
+  sslStatus    String   @default("pending") // "pending", "active", "failed"
+  sslProvider  String?  // "letsencrypt", "cloudflare", etc
+  
+  // DNS instructions
+  requiredRecords String  // JSON: [{type: "CNAME", host: "@", value: "posa360.com"}]
+  
+  createdAt   DateTime @default(now()) @onCreate(now())
+  updatedAt   temporal.UpdatedAt
+  
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId])
+}
+
+// ============================================
+// SUBSCRIPTION PAYMENTS (CRM Tracking)
+// ============================================
+
+model SubscriptionPayment {
+  id          String   @id @onCreate(cuid(2))
+  tenantId    String
+  
+  amount      Float
+  currency    String   @default("TRY")
+  
+  status      PaymentStatusEnum @default(PENDING)
+  
+  periodStart DateTime
+  periodEnd   DateTime
+  
+  paidAt      DateTime?
+  dueDate     DateTime
+  
+  // Payment method
+  paymentMethod String?  // "bank_transfer", "credit_card"
+  
+  // Reference
+  invoiceNumber String?
+  notes         String?
+  
+  createdAt   DateTime @default(now()) @onCreate(now())
+  
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId])
+  @@index([status])
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+model AuditLog {
+  id          String   @id @onCreate(cuid(2))
+  tenantId    String?  // null for super admin actions
+  
+  userId      String
+  action      String   // "create", "update", "delete"
+  entity      String   // "product", "order", etc
+  entityId    String
+  
+  changes     String?  // JSON
+  
+  ipAddress   String?
+  userAgent   String?
+  
+  createdAt   DateTime @default(now()) @onCreate(now())
+  
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId])
+  @@index([userId])
+}
