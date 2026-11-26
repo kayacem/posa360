@@ -27,9 +27,14 @@ export default async function ProductsPage() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Ürünler</h1>
-        <Link href="/admin/products/new">
-          <Button>+ Yeni Ürün</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/admin/products/import">
+            <Button variant="outline">📥 CSV İçe Aktar</Button>
+          </Link>
+          <Link href="/admin/products/new">
+            <Button>+ Yeni Ürün</Button>
+          </Link>
+        </div>
       </div>
 
       <Card>
