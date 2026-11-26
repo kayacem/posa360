@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-
-const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN || 'localhost:43210'
-const PLATFORM_HOST = PLATFORM_DOMAIN.split(':')[0].toLowerCase()
-const RESERVED_SUBDOMAINS = new Set(['www', 'app', 'admin', 'mail', 'panel'])
+import {
+  PLATFORM_HOST,
+  HUB_SUBDOMAIN,
+  RESERVED_SUBDOMAINS,
+  dnsPlatformHost,
+  platformSubdomain,
+} from '@/lib/platform'
 
 function hostWithoutPort(hostname: string): string {
   return hostname.split(':')[0].toLowerCase()
@@ -13,31 +16,21 @@ function isLocalDevHost(host: string): boolean {
   return host === 'localhost' || host === '127.0.0.1' || host === '::1'
 }
 
-function isMarketingHost(host: string): boolean {
-  return (
-    host === PLATFORM_HOST ||
-    host === `www.${PLATFORM_HOST}` ||
-    isLocalDevHost(host)
-  )
+/** Marketing + signup + login + super-admin hub (eticaret.* or localhost). */
+function isHubHost(host: string): boolean {
+  if (isLocalDevHost(host)) return true
+  const dnsHost = dnsPlatformHost()
+  return host === `${HUB_SUBDOMAIN}.${dnsHost}` || host === `${HUB_SUBDOMAIN}.${PLATFORM_HOST}`
 }
 
-function isPlatformAppHost(host: string): boolean {
-  return host === `app.${PLATFORM_HOST}`
-}
-
-function isPlatformAdminHost(host: string): boolean {
-  return host === `admin.${PLATFORM_HOST}` || host === `panel.${PLATFORM_HOST}`
+/** Optional super-admin alias: panel.posa360.com */
+function isPanelHost(host: string): boolean {
+  const dnsHost = dnsPlatformHost()
+  return host === `panel.${dnsHost}` || host === `panel.${PLATFORM_HOST}`
 }
 
 function stripWww(host: string): string {
   return host.startsWith('www.') ? host.slice(4) : host
-}
-
-function platformSubdomain(host: string): string | null {
-  if (!host.endsWith(`.${PLATFORM_HOST}`)) return null
-  const sub = host.slice(0, -(`.${PLATFORM_HOST}`.length))
-  if (!sub) return null
-  return sub.split('.')[0] || null
 }
 
 const MARKETING_PATHS = new Set([
@@ -53,6 +46,7 @@ export function middleware(request: NextRequest) {
   const url = request.nextUrl.clone()
   const hostname = request.headers.get('host') || ''
   const host = hostWithoutPort(hostname)
+  const dnsHost = dnsPlatformHost()
 
   const headers = new Headers(request.headers)
   headers.delete('x-tenant-id')
@@ -69,24 +63,45 @@ export function middleware(request: NextRequest) {
     return NextResponse.next({ request: { headers } })
   }
 
-  // www → apex (production). Localhost stays as-is.
-  if (host === `www.${PLATFORM_HOST}` && !isLocalDevHost(host)) {
-    const apex = new URL(request.url)
-    apex.hostname = PLATFORM_HOST
-    return NextResponse.redirect(apex, 308)
+  // Apex / www belong to the existing POSA hub — never claim them.
+  if (host === dnsHost || host === `www.${dnsHost}`) {
+    return new NextResponse('Not found', { status: 404 })
   }
 
-  // 1. Marketing site: apex + localhost (dev)
-  // Keep /login /kayit /super-admin /platform /api on same host without rewrite to /marketing
-  if (isMarketingHost(host) && !isPlatformAppHost(host) && !isPlatformAdminHost(host)) {
+  // panel.posa360.com → super admin
+  if (isPanelHost(host)) {
+    headers.set('x-tenant-type', 'super-admin')
+    if (url.pathname === '/' || url.pathname === '' || url.pathname === '/admin') {
+      url.pathname = '/super-admin'
+      return NextResponse.rewrite(url, { request: { headers } })
+    }
+    if (url.pathname.startsWith('/admin')) {
+      url.pathname = url.pathname.replace(/^\/admin/, '/super-admin')
+      return NextResponse.rewrite(url, { request: { headers } })
+    }
+    return NextResponse.rewrite(url, { request: { headers } })
+  }
+
+  // 1. Hub: eticaret.posa360.com (+ localhost in dev)
+  if (isHubHost(host)) {
     const path = url.pathname
+
+    if (path === '/admin' || path.startsWith('/admin/')) {
+      headers.set('x-tenant-type', 'super-admin')
+      url.pathname = path === '/admin' ? '/super-admin' : path.replace(/^\/admin/, '/super-admin')
+      return NextResponse.rewrite(url, { request: { headers } })
+    }
+
+    if (path.startsWith('/super-admin')) {
+      headers.set('x-tenant-type', 'super-admin')
+      return NextResponse.rewrite(url, { request: { headers } })
+    }
+
     const isAppRoute =
       path.startsWith('/login') ||
       path.startsWith('/kayit') ||
-      path.startsWith('/super-admin') ||
       path.startsWith('/platform') ||
       path.startsWith('/api') ||
-      path.startsWith('/admin') ||
       path.startsWith('/marketing')
 
     if (!isAppRoute && (MARKETING_PATHS.has(path) || path === '/')) {
@@ -100,31 +115,12 @@ export function middleware(request: NextRequest) {
       return NextResponse.rewrite(url, { request: { headers } })
     }
 
-    // /login, /kayit etc. on apex/localhost
-    if (path === '/' || path === '') {
-      headers.set('x-tenant-type', 'marketing')
-      url.pathname = '/marketing'
-      return NextResponse.rewrite(url, { request: { headers } })
-    }
-  }
-
-  // 2. Platform app hub: app.posa360.com
-  if (isPlatformAppHost(host)) {
     headers.set('x-tenant-type', 'platform-app')
-    if (url.pathname === '/' || url.pathname === '') {
-      url.pathname = '/login'
-      return NextResponse.rewrite(url, { request: { headers } })
-    }
     return NextResponse.rewrite(url, { request: { headers } })
   }
 
-  // 3. Super Admin
-  if (isPlatformAdminHost(host) || url.pathname.startsWith('/super-admin')) {
+  if (url.pathname.startsWith('/super-admin')) {
     headers.set('x-tenant-type', 'super-admin')
-    if (isPlatformAdminHost(host) && (url.pathname === '/' || url.pathname === '')) {
-      url.pathname = '/super-admin'
-      return NextResponse.rewrite(url, { request: { headers } })
-    }
     return NextResponse.rewrite(url, { request: { headers } })
   }
 
@@ -136,18 +132,26 @@ export function middleware(request: NextRequest) {
   const isAdminSubdomain = host.startsWith('admin.')
   const isAdminPath = url.pathname.startsWith('/admin')
 
-  // 4. Merchant Admin
+  // 2. Merchant Admin — {slug}.*/admin or admin.<customdomain>
   if (isAdminSubdomain || isAdminPath) {
     let tenantIdentifier: string | null = null
     let isCustomDomain = false
 
     if (isAdminSubdomain) {
       const withoutAdmin = host.slice('admin.'.length)
-      if (withoutAdmin === PLATFORM_HOST || withoutAdmin.endsWith(`.${PLATFORM_HOST}`)) {
-        const sub = withoutAdmin.endsWith(`.${PLATFORM_HOST}`)
-          ? withoutAdmin.slice(0, -(`.${PLATFORM_HOST}`.length))
-          : null
-        tenantIdentifier = sub || null
+      if (
+        withoutAdmin === dnsHost ||
+        withoutAdmin === PLATFORM_HOST ||
+        withoutAdmin.endsWith(`.${dnsHost}`) ||
+        withoutAdmin.endsWith(`.${PLATFORM_HOST}`) ||
+        withoutAdmin === 'localhost' ||
+        withoutAdmin.endsWith('.localhost')
+      ) {
+        tenantIdentifier = platformSubdomain(withoutAdmin) || (withoutAdmin === 'localhost' ? null : withoutAdmin.split('.')[0])
+        if (withoutAdmin === 'localhost') tenantIdentifier = null
+        if (withoutAdmin.endsWith('.localhost') || withoutAdmin.endsWith(`.${PLATFORM_HOST}`) || withoutAdmin.endsWith(`.${dnsHost}`)) {
+          tenantIdentifier = platformSubdomain(withoutAdmin)
+        }
       } else {
         tenantIdentifier = stripWww(withoutAdmin)
         isCustomDomain = true
@@ -156,7 +160,7 @@ export function middleware(request: NextRequest) {
       const sub = platformSubdomain(host)
       if (sub && !RESERVED_SUBDOMAINS.has(sub)) {
         tenantIdentifier = sub
-      } else if (!host.includes(PLATFORM_HOST) && !isLocalDevHost(host) && host !== PLATFORM_HOST) {
+      } else if (!host.includes(dnsHost) && !host.includes(PLATFORM_HOST) && !isLocalDevHost(host) && !host.endsWith('.localhost') && host !== dnsHost) {
         tenantIdentifier = stripWww(host)
         isCustomDomain = true
       }
@@ -178,11 +182,17 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(url, { request: { headers } })
   }
 
-  // 5. Storefront
+  // 3. Storefront
   let tenantIdentifier: string | null = null
   let isCustomDomain = false
 
-  if (!host.includes(PLATFORM_HOST) && !isLocalDevHost(host) && host !== PLATFORM_HOST) {
+  if (
+    !host.includes(dnsHost) &&
+    !host.includes(PLATFORM_HOST) &&
+    !isLocalDevHost(host) &&
+    !host.endsWith('.localhost') &&
+    host !== dnsHost
+  ) {
     tenantIdentifier = stripWww(host)
     isCustomDomain = true
   } else {

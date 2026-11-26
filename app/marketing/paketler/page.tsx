@@ -10,12 +10,6 @@ export const metadata: Metadata = {
   description: 'POSA360 e-ticaret paketleri — Başlangıç, Profesyonel ve Kurumsal. Aylık veya yıllık faturalama.',
 }
 
-const APP =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  (process.env.NEXT_PUBLIC_PLATFORM_DOMAIN
-    ? `https://app.${process.env.NEXT_PUBLIC_PLATFORM_DOMAIN.split(':')[0]}`
-    : 'http://localhost:43210')
-
 const FAQ = [
   {
     q: 'Yıllık ödemede ne kadar kazanırım?',
@@ -65,7 +59,7 @@ export default async function PaketlerPage() {
         </div>
 
         <div className="mt-12">
-          <PricingCards plans={plans} kayitBase={`${APP.replace(/\/$/, '')}/kayit`} />
+          <PricingCards plans={plans} kayitBase="/kayit" />
         </div>
 
         {/* Comparison */}

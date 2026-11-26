@@ -11,12 +11,6 @@ const hasPanelShot = existsSync(
   path.join(process.cwd(), 'public/marketing/panel-dashboard-real.png')
 )
 
-const APP =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  (process.env.NEXT_PUBLIC_PLATFORM_DOMAIN
-    ? `https://app.${process.env.NEXT_PUBLIC_PLATFORM_DOMAIN.split(':')[0]}`
-    : 'http://localhost:43210')
-
 const VALUE_PROPS = [
   {
     title: 'Mağazanı hemen aç',
@@ -78,7 +72,7 @@ export default async function MarketingHomePage() {
     where: { isActive: true },
     orderBy: { sortOrder: 'asc' },
   })
-  const kayit = `${APP.replace(/\/$/, '')}/kayit`
+  const kayit = '/kayit'
   const highlighted = plans.find((p) => p.highlighted) || plans[1] || plans[0]
 
   return (

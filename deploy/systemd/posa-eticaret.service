@@ -1,0 +1,30 @@
+[Unit]
+Description=POSA E-ticaret (POSA360) Next.js on :3030
+Documentation=file:///opt/posa/apps/eticaret/current
+After=network.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=posa
+Group=posa
+WorkingDirectory=/opt/posa/apps/eticaret/current
+EnvironmentFile=/opt/posa/apps/eticaret/.env
+Environment=NODE_ENV=production
+Environment=PORT=3030
+Environment=HOSTNAME=127.0.0.1
+Environment=NODE_OPTIONS=--max-old-space-size=384
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+# Soft memory limit hint (1 GB shared box)
+MemoryMax=512M
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=posa-eticaret
+
+[Install]
+WantedBy=multi-user.target

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcrypt'
 import prisma from '@/lib/db'
+import { RESERVED_SIGNUP_SLUGS } from '@/lib/platform'
 
-const RESERVED_SLUGS = new Set([
-  'www', 'app', 'admin', 'mail', 'panel', 'api', 'static', 'login', 'kayit', 'super-admin', 'platform', 'marketing',
-])
+const RESERVED_SLUGS = RESERVED_SIGNUP_SLUGS
 
 function slugify(value: string): string {
   return value

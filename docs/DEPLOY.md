@@ -1,132 +1,186 @@
-# POSA360 — VPS Production Kurulum (Ubuntu 22/24)
+# POSA360 E-ticaret — Production Kurulum (DigitalOcean)
 
-Tek sunucuda Docker Compose: **app** (Next.js standalone) + **Postgres 16** (dışarı kapalı) + **Caddy** (80/443, TLS).
-
-Bu stack şunları sunar:
+Bu uygulama **posa360.com apex/www’yi kullanmaz**. Apex’te zaten çalışan POSA hub (`posa-360.service` :3016) ve diğer ürünler (randevu, yonet, ajans, otel, menu) olduğu gibi kalır.
 
 | Host | Görev |
 |------|--------|
-| `posa360.com` | Marketing sitesi (`/`, `/paketler`, `/iletisim`, …) |
-| `www.posa360.com` | Apex’e **308 redirect** |
-| `app.posa360.com` | Giriş + kayıt (`/login`, `/kayit?plan=`) |
-| `admin.posa360.com` | Süper admin |
-| `{slug}.posa360.com` | Mağaza vitrini /admin |
-| Özel merchant domain | On-Demand TLS + doğrulama |
+| `eticaret.posa360.com` | Marketing (`/`, `/paketler`, `/iletisim`, yasal) + `/kayit?plan=` + `/login` + süper admin (`/admin` → `/super-admin`) |
+| `panel.posa360.com` | Süper admin alias (isteğe bağlı) |
+| `{slug}.posa360.com` | Mağaza vitrini + `/admin` (nginx wildcard; mevcut exact `server_name` blokları kazanır) |
+| `örnek.com` / `admin.örnek.com` | Merchant özel domain (TXT doğrulama + certbot) |
 
-## 1. VPS hazırlığı
+**Yok:** Docker Compose production, Caddy. Stack: **nginx (80/443)** + **systemd `posa-eticaret` (:3030)** + **native PostgreSQL 16**.
 
-```bash
-sudo apt update
-sudo apt install -y ca-certificates curl git
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker $USER
+Sunucu: DigitalOcean droplet `206.189.8.235`, Ubuntu 24.04, 1 GB RAM + 2 GB swap. **Sunucuda `next build` yapılmaz.**
 
-sudo ufw allow OpenSSH
-sudo ufw allow 22/tcp
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
-```
+---
 
-```bash
-sudo mkdir -p /opt/posa360 && sudo chown $USER:$USER /opt/posa360
-git clone <REPO_URL> /opt/posa360
-cd /opt/posa360
-cp .env.production.example .env.production
-nano .env.production
-chmod +x scripts/*.sh deploy/caddy/entrypoint.sh
-```
-
-## 2. DNS — platform (`posa360.com`)
+## 1. DNS (DigitalOcean)
 
 | Tip | Host | Değer |
 |-----|------|--------|
-| A | `@` | VPS public IP (marketing) |
-| A | `www` | VPS public IP (→ apex redirect) |
-| A | `app` | VPS public IP |
-| A | `admin` | VPS public IP |
-| A | `*` | VPS public IP (mağaza subdomainleri) |
+| A | `eticaret` | `206.189.8.235` |
+| A | `*` | `206.189.8.235` (mağaza subdomainleri) |
+| A | `panel` | `206.189.8.235` (isteğe bağlı süper admin) |
 
-Marketing CTA: `https://app.posa360.com/kayit?plan=profesyonel`
+Mevcut exact kayıtlar (`@`, `www`, `randevu`, `yonet`, …) olduğu gibi kalır; nginx’te exact `server_name` wildcard’dan önce eşleşir.
 
-### TLS
+### Merchant özel domain
 
-- `TLS_MODE=ondemand` (varsayılan) veya `TLS_MODE=dns` + `CLOUDFLARE_API_TOKEN` (wildcard `*.posa360.com` + apex/www).
+| Tip | Host | Değer |
+|-----|------|--------|
+| A / CNAME | `@` / `www` | `206.189.8.235` veya `eticaret.posa360.com` |
+| A / CNAME | `admin` | aynı |
+| TXT | `_posa360-verification` | panelde üretilen token |
 
-## 3. Merchant özel domain
+---
 
-A `@` / CNAME `www` + `admin` → VPS veya `{slug}.posa360.com`; TXT `_posa360-verification`.
+## 2. Postgres — yeni DB + rol
 
-## 4. Manuel deploy
-
-```bash
-cd /opt/posa360
-./scripts/deploy.sh
-```
-
-Akış: mevcut imajı `posa360-app:previous` olarak etiketle → `git pull` → `docker compose build` → `up -d` → `/api/health` → `prisma migrate deploy` (entrypoint’te de çalışır). Health başarısız olursa otomatik rollback.
-
-Super admin: `SEED_SUPER_ADMIN_*` · Plan fiyatları süper admin → **Planlar** ekranından güncellenir (seed’deki tutarlar yer tutucu).
-
-### Hızlı rollback
+Mevcut Postgres’e (127.0.0.1:5432) ayrı rol/DB:
 
 ```bash
-cd /opt/posa360
-docker tag posa360-app:previous posa360-app:latest
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d --no-build app
+sudo -u postgres psql <<'SQL'
+CREATE USER posa_eticaret WITH PASSWORD 'GÜÇLÜ_ŞİFRE';
+CREATE DATABASE posa_eticaret OWNER posa_eticaret;
+GRANT ALL PRIVILEGES ON DATABASE posa_eticaret TO posa_eticaret;
+\c posa_eticaret
+GRANT ALL ON SCHEMA public TO posa_eticaret;
+ALTER DATABASE posa_eticaret OWNER TO posa_eticaret;
+SQL
 ```
 
-## 5. GitHub Actions ile otomatik deploy
+---
 
-`main`’e her push’ta (ve manuel `workflow_dispatch`) `.github/workflows/deploy.yml`:
-
-1. `npm ci` → `prisma generate` → `npm run typecheck` → `npm run test:unit`
-2. Başarılıysa SSH ile VPS’te `/opt/posa360` altında `./scripts/deploy.sh`
-
-### 5.1 GitHub repository secrets
-
-Repo → **Settings → Secrets and variables → Actions → New repository secret**:
-
-| Secret | Zorunlu | Açıklama |
-|--------|---------|----------|
-| `VPS_HOST` | Evet | VPS IP veya hostname (örn. `203.0.113.10`) |
-| `VPS_USER` | Evet | SSH kullanıcısı (örn. `deploy` veya `ubuntu`) |
-| `VPS_SSH_KEY` | Evet | Deploy için **private** SSH anahtarın tamamı (`-----BEGIN … KEY-----` …) |
-| `VPS_PORT` | Hayır | SSH portu; boş bırakılırsa **22** |
-
-Secret değerlerini commit’e veya `.env` dosyasına koyma.
-
-### 5.2 VPS’te deploy SSH anahtarı
-
-GitHub Actions’ın bağlanması için VPS’te yalnızca bu deploy anahtarını kullanın (kişisel anahtardan ayrı tutun).
+## 3. Uygulama dizini + env
 
 ```bash
-# Yerel makinede (bir kez)
-ssh-keygen -t ed25519 -C "posa360-github-deploy" -f ./posa360_deploy -N ""
+sudo mkdir -p /opt/posa/apps/eticaret/{releases,backups}
+sudo mkdir -p /etc/nginx/sites-available/posa-eticaret-custom
+# Deploy kullanıcısı (ör. posa) sahibi olsun
+sudo chown -R posa:posa /opt/posa/apps/eticaret
 
-# Public key → VPS
-ssh USER@VPS_HOST 'mkdir -p ~/.ssh && chmod 700 ~/.ssh'
-ssh-copy-id -i ./posa360_deploy.pub USER@VPS_HOST
-# veya: cat posa360_deploy.pub | ssh USER@VPS 'cat >> ~/.ssh/authorized_keys'
-
-# Private key → GitHub secret VPS_SSH_KEY
-# (posa360_deploy dosyasının tüm içeriğini yapıştırın)
-cat ./posa360_deploy
+cp .env.production.example /opt/posa/apps/eticaret/.env
+nano /opt/posa/apps/eticaret/.env
+chmod 600 /opt/posa/apps/eticaret/.env
 ```
 
-Öneriler:
+Önemli değişkenler: `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL=https://eticaret.posa360.com`, `NEXT_PUBLIC_*`, `CERT_AGENT_SECRET`.
 
-- Deploy kullanıcısının `/opt/posa360` yazma ve `docker` grubu yetkisi olsun.
-- `git pull` için VPS’te repo HTTPS (credential) veya read-only deploy key ile `origin` erişimi kurulu olsun.
-- İlk kurulumda bir kez manuel `./scripts/deploy.sh` çalıştırıp stack’i ayağa kaldırın; sonra Actions’a bırakın.
+`posa` kullanıcısının `docker` gerekmez; `systemctl restart posa-eticaret` için passwordless sudo önerilir:
 
-### 5.3 Workflow’u tetikleme
+```bash
+echo 'posa ALL=(root) NOPASSWD: /bin/systemctl restart posa-eticaret, /bin/systemctl reload nginx, /usr/sbin/nginx' | sudo tee /etc/sudoers.d/posa-eticaret
+```
 
-- `main`’e merge/push
-- veya Actions → **Deploy production** → **Run workflow**
+Node 22 sunucuda kurulu olmalı (`node -v`); yalnızca **çalıştırma** için — build CI’da.
 
-Loglarda typecheck/unit fail olursa SSH adımı çalışmaz. Deploy sırasında health fail olursa script önceki imaja döner.
+---
 
-## 6–8. Güncelleme / yedek / restore
+## 4. systemd
 
-`./scripts/deploy.sh` · cron: `15 3 * * * …/scripts/backup-db.sh` · restore: `gunzip -c backups/….sql.gz | docker compose … exec -T postgres psql …`
+```bash
+sudo cp deploy/systemd/posa-eticaret.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable posa-eticaret
+# İlk release gelene kadar start etme; Actions ilk deploy’da restart eder
+```
+
+Port **3030**, `NODE_OPTIONS=--max-old-space-size=384`, `WorkingDirectory=/opt/posa/apps/eticaret/current`.
+
+---
+
+## 5. nginx
+
+```bash
+sudo cp deploy/nginx/eticaret.conf /etc/nginx/sites-available/posa-eticaret.conf
+sudo ln -sf /etc/nginx/sites-available/posa-eticaret.conf /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Wildcard + hub aynı upstream `127.0.0.1:3030`. Diğer ürünlerin exact bloklarına dokunma.
+
+### Wildcard TLS (dns-digitalocean)
+
+```bash
+sudo apt install -y certbot python3-certbot-dns-digitalocean python3-certbot-nginx
+sudo mkdir -p /root/.secrets
+sudo nano /root/.secrets/do.ini   # dns_digitalocean_token = dop_v1_...
+sudo chmod 600 /root/.secrets/do.ini
+
+sudo certbot certonly \
+  --dns-digitalocean \
+  --dns-digitalocean-credentials /root/.secrets/do.ini \
+  -d '*.posa360.com' \
+  --email admin@posa360.com --agree-tos -n
+```
+
+Sertifika yolunu `deploy/nginx/eticaret.conf` içindeki `ssl_certificate` satırlarıyla eşleştir (certbot live dizin adı farklı olabilir).
+
+### Özel domain sertifikaları
+
+```bash
+sudo cp deploy/scripts/issue-domain-cert.sh /usr/local/sbin/posa-eticaret-issue-domain-cert.sh
+sudo chmod +x /usr/local/sbin/posa-eticaret-issue-domain-cert.sh
+
+# Her 5 dk
+echo '*/5 * * * * root API_BASE=https://eticaret.posa360.com /usr/local/sbin/posa-eticaret-issue-domain-cert.sh >> /var/log/posa-eticaret-certs.log 2>&1' \
+  | sudo tee /etc/cron.d/posa-eticaret-certs
+```
+
+Script `GET /api/internal/pending-certs` (header `X-Cert-Agent-Secret`) ile `sslStatus=pending|failed` doğrulanmış domainleri alır; `certbot --nginx` ile `domain` + `www` + `admin.domain` sertifikası çıkarır; vhost yazar; **yalnızca `nginx -t` başarılıysa** reload eder; sonucu API’ye yazar.
+
+---
+
+## 6. GitHub Actions auto-deploy
+
+`main` push → CI’da `tsc` + unit test + **standalone build** → artifact → rsync → `releases/<sha>` → `prisma migrate deploy` → `current` symlink → `systemctl restart` → `/api/health` → fail olursa önceki release → son **5** release tutulur.
+
+### Secrets (Settings → Actions)
+
+| Secret | Açıklama |
+|--------|----------|
+| `VPS_HOST` | `206.189.8.235` |
+| `VPS_USER` | örn. `posa` |
+| `VPS_SSH_KEY` | Deploy **private** key (tam PEM) |
+
+### Deploy key
+
+```bash
+ssh-keygen -t ed25519 -C "posa-eticaret-gha" -f ./posa_eticaret_deploy -N ""
+ssh-copy-id -i ./posa_eticaret_deploy.pub posa@206.189.8.235
+# Private içeriği → VPS_SSH_KEY
+```
+
+İlk seferde Actions’ı çalıştırmadan önce dizin + `.env` + nginx + systemd hazır olmalı. İlk release rsync ile gelir; `current` henüz yokken activate script oluşturur.
+
+---
+
+## 7. Yedek
+
+```bash
+sudo cp scripts/backup-db.sh /opt/posa/apps/eticaret/backup-db.sh
+sudo chmod +x /opt/posa/apps/eticaret/backup-db.sh
+# cron (posa):
+# 15 3 * * * /opt/posa/apps/eticaret/backup-db.sh >> /var/log/posa-eticaret-backup.log 2>&1
+```
+
+Restore: `gunzip -c /opt/posa/apps/eticaret/backups/….sql.gz | psql "$DATABASE_URL"`.
+
+---
+
+## 8. Hızlı rollback
+
+```bash
+cd /opt/posa/apps/eticaret/releases
+ls -1dt */ | head
+ln -sfn /opt/posa/apps/eticaret/releases/<eski-sha> /opt/posa/apps/eticaret/current
+sudo systemctl restart posa-eticaret
+curl -s http://127.0.0.1:3030/api/health
+```
+
+---
+
+## 9. Rezerve subdomain’ler
+
+Mağaza slug olamaz: `www`, `eticaret`, `admin`, `app`, `api`, `mail`, `randevu`, `yonet`, `ajans`, `otel`, `menu`, `panel`.

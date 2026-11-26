@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
+import { publicMarketingOrigin } from '@/lib/platform'
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL?.replace('app.', '') || 'https://posa360.com'),
+  metadataBase: new URL(publicMarketingOrigin()),
   title: {
     default: 'POSA360 — Kendi Alan Adınla E-Ticaret',
     template: '%s · POSA360',

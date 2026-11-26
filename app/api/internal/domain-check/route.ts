@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-
-const RESERVED_SUBDOMAINS = new Set(['mail'])
+import { HUB_SUBDOMAIN, RESERVED_SUBDOMAINS, dnsPlatformHost } from '@/lib/platform'
 
 /**
- * Caddy On-Demand TLS ask endpoint.
- * Allows: platform apex, www, app/admin/{store}.*, verified custom domains (+ admin.*).
+ * Allow-list helper for diagnostics / TLS tooling.
+ * Allows: eticaret hub, panel alias, non-reserved store subdomains, verified custom domains.
+ * Does NOT allow apex/www (owned by the existing POSA hub) or reserved product subs.
  */
 export async function GET(req: NextRequest) {
   const domainRaw = req.nextUrl.searchParams.get('domain') || ''
@@ -15,12 +15,13 @@ export async function GET(req: NextRequest) {
     return new NextResponse('invalid', { status: 400 })
   }
 
-  const platformHost = (process.env.NEXT_PUBLIC_PLATFORM_DOMAIN || 'posa360.com')
-    .split(':')[0]
-    .toLowerCase()
+  const platformHost = dnsPlatformHost()
 
-  // Marketing + platform subdomains
   if (domain === platformHost || domain === `www.${platformHost}`) {
+    return new NextResponse('other-service', { status: 404 })
+  }
+
+  if (domain === `${HUB_SUBDOMAIN}.${platformHost}` || domain === `panel.${platformHost}`) {
     return new NextResponse('ok', { status: 200 })
   }
 
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
   if (verified) return new NextResponse('ok', { status: 200 })
 
   const tenant = await prisma.tenant.findFirst({
-    where: { customDomain: { in: candidates }, status: 'ACTIVE' },
+    where: { customDomain: { in: candidates }, status: { in: ['ACTIVE', 'TRIAL'] } },
     select: { id: true },
   })
   if (tenant) return new NextResponse('ok', { status: 200 })

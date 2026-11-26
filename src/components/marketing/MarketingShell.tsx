@@ -1,12 +1,7 @@
 import Link from 'next/link'
 import { MarketingFooter } from './MarketingFooter'
 
-const APP_HOST =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  (process.env.NEXT_PUBLIC_PLATFORM_DOMAIN
-    ? `https://app.${process.env.NEXT_PUBLIC_PLATFORM_DOMAIN.split(':')[0]}`
-    : 'http://localhost:43210')
-
+/** Same-origin hub (eticaret.*): relative kayit/login. */
 export function MarketingShell({
   children,
   active,
@@ -14,8 +9,8 @@ export function MarketingShell({
   children: React.ReactNode
   active?: 'home' | 'paketler' | 'iletisim'
 }) {
-  const kayit = `${APP_HOST.replace(/\/$/, '')}/kayit`
-  const giris = `${APP_HOST.replace(/\/$/, '')}/login`
+  const kayit = '/kayit'
+  const giris = '/login'
 
   const linkClass = (key: string) =>
     `text-sm font-medium transition ${
@@ -44,18 +39,18 @@ export function MarketingShell({
             </Link>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
-            <a
+            <Link
               href={giris}
               className="hidden text-sm font-medium text-slate-600 hover:text-slate-900 sm:inline"
             >
               Giriş
-            </a>
-            <a
+            </Link>
+            <Link
               href={kayit}
               className="rounded-full bg-teal-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
             >
               Ücretsiz Dene
-            </a>
+            </Link>
           </div>
         </div>
       </header>
