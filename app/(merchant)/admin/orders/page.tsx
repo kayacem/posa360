@@ -61,7 +61,7 @@ export default async function OrdersPage() {
             </thead>
             <tbody className="divide-y">
               {orders.map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50">
+                <tr key={order.id} data-testid="order-row" className="hover:bg-gray-50">
                   <td className="px-6 py-4 font-medium">
                     #{order.orderNumber}
                   </td>

@@ -59,7 +59,7 @@ export default async function ProductsPage() {
             </thead>
             <tbody className="divide-y">
               {products.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50">
+                <tr key={product.id} data-testid="product-row" className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="flex items-center space-x-3">
                       {product.images[0] && (

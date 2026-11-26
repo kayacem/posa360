@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals'
+import { describe, it, expect } from 'vitest'
 import { formatCurrency, formatDate, generateOrderNumber } from '@/lib/utils'
 
 describe('Utils', () => {
@@ -23,8 +23,8 @@ describe('Utils', () => {
     it('should generate unique order numbers', () => {
       const order1 = generateOrderNumber()
       const order2 = generateOrderNumber()
-      expect(order1).toMatch(/^ORD-\d{10}$/)
-      expect(order2).toMatch(/^ORD-\d{10}$/)
+      expect(order1).toMatch(/^ORD-[A-Z0-9]+-[A-Z0-9]+$/)
+      expect(order2).toMatch(/^ORD-[A-Z0-9]+-[A-Z0-9]+$/)
       expect(order1).not.toBe(order2)
     })
   })

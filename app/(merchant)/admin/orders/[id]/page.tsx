@@ -50,9 +50,29 @@ export default async function OrderDetailPage({
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Sipariş #{order.orderNumber}</h1>
-        <p className="text-gray-500">{formatDate(order.createdAt)}</p>
+      <div className="mb-6 flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-bold">Sipariş #{order.orderNumber}</h1>
+          <p className="text-gray-500">{formatDate(order.createdAt)}</p>
+        </div>
+        <div className="flex gap-2">
+          <a
+            href={`/api/orders/${order.id}/invoice-pdf`}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            target="_blank"
+          >
+            📄 Fatura İndir
+          </a>
+          {order.shipments.length > 0 && (
+            <a
+              href={`/api/orders/${order.id}/label-pdf`}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              target="_blank"
+            >
+              🏷️ Etiket İndir
+            </a>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

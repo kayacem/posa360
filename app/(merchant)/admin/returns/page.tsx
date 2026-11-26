@@ -56,7 +56,7 @@ export default async function ReturnsPage() {
             </thead>
             <tbody className="divide-y">
               {returns.map((ret) => (
-                <tr key={ret.id}>
+                <tr key={ret.id} data-testid="return-row">
                   <td className="px-6 py-4">#{ret.returnNumber}</td>
                   <td className="px-6 py-4">#{ret.order.orderNumber}</td>
                   <td className="px-6 py-4">{ret.order.customer?.name || 'Misafir'}</td>
