@@ -2,6 +2,11 @@
 
 Shopify benzeri, Türkiye pazarına özel çok kiracılı (multi-tenant) SaaS e-ticaret platformu. Ajans sahipleri için tasarlanmış, her müşteriye (tenant) kendi mağazasını açma imkanı sunar.
 
+> **📊 Mevcut Durum**: Proje aktif geliştirme aşamasında. Detaylı ilerleme durumu için [PROJECT_STATUS.md](./PROJECT_STATUS.md) dosyasına bakın.
+> 
+> **✅ Şu an çalışan**: Real database, authentication, multi-tenant routing, storefront, merchant admin core features  
+> **🔧 Devam eden**: Full merchant CRUD, customer account, super admin CRM, testing
+
 ## 🌟 Özellikler
 
 ### Super Admin Panel
@@ -97,10 +102,10 @@ Shopify benzeri, Türkiye pazarına özel çok kiracılı (multi-tenant) SaaS e-
 
 - **Frontend/Backend**: Next.js 16 (App Router) + TypeScript
 - **Database**: PostgreSQL 16+
-- **ORM**: Prisma 8
+- **ORM**: Prisma 6.19.3 (stable)
 - **Auth**: NextAuth.js (beta)
 - **UI**: Tailwind CSS 4 + Radix UI components
-- **Charts**: Recharts
+- **Charts**: Recharts (ready for integration)
 - **Icons**: Lucide React
 
 ## 📦 Kurulum
