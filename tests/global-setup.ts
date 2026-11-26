@@ -4,18 +4,19 @@ import path from 'path'
 async function globalSetup(config: FullConfig) {
   const storageDir = path.join(__dirname, '.auth')
   
-  // Setup for merchant
+  // Setup for merchant (must login at subdomain to get correct cookies)
   const merchantBrowser = await chromium.launch()
   const merchantContext = await merchantBrowser.newContext()
   const merchantPage = await merchantContext.newPage()
   
   console.log('🔐 Setting up merchant auth...')
-  await merchantPage.goto('http://localhost:43210/login')
+  await merchantPage.goto('http://shopmagaza.localhost:43210/login')
   await merchantPage.waitForLoadState('networkidle')
   await merchantPage.fill('input[type="email"]', 'ahmet@shopmagaza.com')
   await merchantPage.fill('input[type="password"]', 'merchant123')
   await merchantPage.click('button[type="submit"]')
-  await merchantPage.waitForTimeout(3000)
+  await merchantPage.waitForURL(/\/admin/, { timeout: 10000 })
+  await merchantPage.waitForLoadState('networkidle')
   
   // Save merchant state
   await merchantContext.storageState({ path: path.join(storageDir, 'merchant.json') })
@@ -33,7 +34,8 @@ async function globalSetup(config: FullConfig) {
   await adminPage.fill('input[type="email"]', 'admin@posa360.com')
   await adminPage.fill('input[type="password"]', 'admin123')
   await adminPage.click('button[type="submit"]')
-  await adminPage.waitForTimeout(3000)
+  await adminPage.waitForURL(/\/super-admin/, { timeout: 10000 })
+  await adminPage.waitForLoadState('networkidle')
   
   // Save admin state
   await adminContext.storageState({ path: path.join(storageDir, 'admin.json') })
