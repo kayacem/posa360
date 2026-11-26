@@ -22,28 +22,40 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
+# Service runs as an unprivileged user; release files must be readable/writable by it
+RUN_USER="${RUN_USER:-posa}"
+if [[ "$(id -u)" -eq 0 ]] && id "$RUN_USER" >/dev/null 2>&1; then
+  chown -R "$RUN_USER:$RUN_USER" "$RELEASE_DIR"
+fi
+
 PREV=""
 if [[ -L "$CURRENT_LINK" ]]; then
   PREV="$(readlink -f "$CURRENT_LINK" || true)"
 fi
-
-echo "==> Symlink current → releases/${SHA}"
-ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
 
 echo "==> prisma migrate deploy"
 set -a
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 set +a
-cd "$CURRENT_LINK"
-if [[ -x ./node_modules/.bin/prisma ]]; then
-  ./node_modules/.bin/prisma migrate deploy
-elif command -v npx >/dev/null 2>&1; then
-  npx prisma migrate deploy
+cd "$RELEASE_DIR"
+# Never fall back to `npx prisma` (would download the latest major from npm).
+PRISMA_CLI=./prisma-cli/node_modules/prisma/build/index.js
+[[ -f "$PRISMA_CLI" ]] || PRISMA_CLI=./node_modules/prisma/build/index.js
+if [[ -f "$PRISMA_CLI" ]]; then
+  node "$PRISMA_CLI" migrate deploy --schema prisma/schema.prisma
 else
   echo "prisma CLI not found in release" >&2
   exit 1
 fi
+
+if [[ -f ./scripts/seed-prod.mjs ]]; then
+  echo "==> seed-prod (idempotent: plans + optional super admin)"
+  node ./scripts/seed-prod.mjs || echo "WARN: seed-prod failed (continuing)"
+fi
+
+echo "==> Symlink current → releases/${SHA}"
+ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
 
 echo "==> systemctl restart ${SERVICE}"
 sudo systemctl restart "$SERVICE"
@@ -72,7 +84,10 @@ fi
 
 echo "==> Prune old releases (keep ${KEEP_RELEASES})"
 cd "${APP_ROOT}/releases"
+CUR_REAL="$(readlink -f "$CURRENT_LINK" || true)"
 ls -1dt */ 2>/dev/null | tail -n +"$((KEEP_RELEASES + 1))" | while read -r old; do
+  old="${old%/}"
+  [[ "$(readlink -f "$old")" == "$CUR_REAL" ]] && continue
   echo "Removing releases/${old}"
   rm -rf "$old"
 done

@@ -6,10 +6,15 @@
 # Until a host has a cert, HTTP-only catch-all / pending vhost serves it (no HTTPS redirect).
 set -euo pipefail
 
+exec 9>/run/posa-eticaret-certs.lock
+flock -n 9 || { echo "already running"; exit 0; }
+
 APP_ENV="${APP_ENV:-/opt/posa/apps/eticaret/.env}"
 API_BASE="${API_BASE:-https://eticaret.posa360.com}"
 NGINX_HOSTS_DIR="${NGINX_HOSTS_DIR:-/etc/nginx/sites-available/posa-eticaret-hosts}"
 EMAIL="${ACME_EMAIL:-admin@posa360.com}"
+STATE_DIR="${STATE_DIR:-/var/lib/posa-eticaret-certs}"
+RETRY_MINUTES="${RETRY_MINUTES:-30}"
 
 if [[ -f "$APP_ENV" ]]; then
   set -a
@@ -24,7 +29,7 @@ if [[ -z "$SECRET" ]]; then
   exit 1
 fi
 
-mkdir -p "$NGINX_HOSTS_DIR"
+mkdir -p "$NGINX_HOSTS_DIR" "$STATE_DIR"
 touch "${NGINX_HOSTS_DIR}/.keep.conf"
 
 json="$(curl -fsS -H "X-Cert-Agent-Secret: ${SECRET}" "${API_BASE}/api/internal/pending-certs")"
@@ -74,8 +79,8 @@ server {
 }
 
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    listen 443 ssl;
+    listen [::]:443 ssl;
     server_name ${names};
     ssl_certificate     ${live}/fullchain.pem;
     ssl_certificate_key ${live}/privkey.pem;
@@ -102,7 +107,7 @@ write_http_only_custom() {
 server {
     listen 80;
     listen [::]:80;
-    server_name ${domain} www.${domain} admin.${domain};
+    server_name ${domain} admin.${domain};
     location /.well-known/acme-challenge/ { root /var/www/html; }
     client_max_body_size 32m;
     location / {
@@ -135,6 +140,11 @@ fi
 
 while IFS=$'\t' read -r kind host tenant_id hosts_csv; do
   [[ -z "$host" ]] && continue
+  fail_marker="${STATE_DIR}/${host}.failed"
+  if [[ -n "$(find "$fail_marker" -mmin -"${RETRY_MINUTES}" 2>/dev/null)" ]]; then
+    echo "==> skip ${host} (failed < ${RETRY_MINUTES} min ago)"
+    continue
+  fi
   echo "==> kind=${kind} host=${host} hosts=${hosts_csv}"
 
   IFS=',' read -r -a host_list <<< "$hosts_csv"
@@ -155,16 +165,18 @@ while IFS=$'\t' read -r kind host tenant_id hosts_csv; do
   if certbot "${certbot_args[@]}"; then
     rm -f "${NGINX_HOSTS_DIR}/${host}.http-pending.conf"
     if [[ "$kind" == "custom" ]]; then
-      write_https_vhost "$host" "www.${host}" "admin.${host}"
+      write_https_vhost "$host" "admin.${host}"
     else
       write_https_vhost "$host"
     fi
     if safe_reload_nginx; then
+      rm -f "$fail_marker"
       mark_status "$kind" "$host" issued "$tenant_id"
     else
       mark_status "$kind" "$host" failed "$tenant_id" "nginx -t failed after cert"
     fi
   else
+    touch "$fail_marker"
     mark_status "$kind" "$host" failed "$tenant_id" "certbot failed"
   fi
 done < /tmp/posa-pending-hosts.tsv

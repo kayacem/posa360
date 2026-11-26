@@ -26,16 +26,25 @@ cp -a public "$OUT/"
 echo "==> Copy prisma + migrate tooling"
 cp -a prisma "$OUT/"
 cp package.json "$OUT/"
-# Prisma CLI + engines (standalone tree may omit them)
+# Prisma client runtime (standalone trace may omit the generated engine files)
 mkdir -p "$OUT/node_modules"
-if [[ -d node_modules/prisma ]]; then
-  rm -rf "$OUT/node_modules/prisma"
-  cp -a node_modules/prisma "$OUT/node_modules/"
-fi
 if [[ -d node_modules/@prisma ]]; then
   rm -rf "$OUT/node_modules/@prisma"
   cp -a node_modules/@prisma "$OUT/node_modules/"
 fi
+if [[ -d node_modules/.prisma ]]; then
+  rm -rf "$OUT/node_modules/.prisma"
+  cp -a node_modules/.prisma "$OUT/node_modules/"
+fi
+
+# Self-contained Prisma CLI for `migrate deploy` on the server (copying only
+# node_modules/prisma misses transitive deps like effect/fast-check/c12).
+PRISMA_VERSION="$(node -p "require('./node_modules/prisma/package.json').version")"
+echo "==> Install prisma CLI ${PRISMA_VERSION} → prisma-cli/"
+mkdir -p "$OUT/prisma-cli"
+echo '{"private":true}' > "$OUT/prisma-cli/package.json"
+npm install --prefix "$OUT/prisma-cli" --no-audit --no-fund --no-save \
+  "prisma@${PRISMA_VERSION}" >/dev/null
 
 # Optional prod seed helper
 mkdir -p "$OUT/scripts"

@@ -97,10 +97,17 @@ sudo apt install -y certbot python3-certbot-nginx
 sudo mkdir -p /etc/nginx/sites-available/posa-eticaret-hosts
 sudo touch /etc/nginx/sites-available/posa-eticaret-hosts/.keep.conf
 
+# Faz 1: HTTP (hub → https redirect, mağaza catch-all, per-host include)
 sudo cp deploy/nginx/eticaret.conf /etc/nginx/sites-available/posa-eticaret.conf
 sudo ln -sf /etc/nginx/sites-available/posa-eticaret.conf /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
+# Faz 2: hub sertifikası (aşağıda), SONRA 443 bloğu
+sudo cp deploy/nginx/eticaret-ssl.conf /etc/nginx/sites-available/posa-eticaret-ssl.conf
+sudo ln -sf /etc/nginx/sites-available/posa-eticaret-ssl.conf /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
 ```
+
+> `listen ... http2` kullanılmaz: nginx 1.24'te bu bayrak adres:port başına geçerli ve diğer tüm sitelerin :443'ünü değiştirir.
 
 - Hub + catch-all `*.posa360.com` → `127.0.0.1:3030`
 - Catch-all **yalnızca HTTP** (sertifika yokken HTTPS yönlendirmesi yok)
@@ -109,7 +116,7 @@ sudo nginx -t && sudo systemctl reload nginx
 ### Hub sertifikası (kurulumda bir kez)
 
 ```bash
-sudo certbot --nginx -d eticaret.posa360.com -d panel.posa360.com \
+sudo certbot certonly --nginx -d eticaret.posa360.com -d panel.posa360.com \
   --non-interactive --agree-tos -m admin@posa360.com
 sudo nginx -t && sudo systemctl reload nginx
 ```
@@ -139,14 +146,14 @@ Her host için: `certbot certonly --nginx -d <host> …` → `/etc/nginx/sites-a
 
 ## 6. GitHub Actions auto-deploy
 
-`main` push → CI’da `tsc` + unit test + **standalone build** → artifact → rsync → `releases/<sha>` → `prisma migrate deploy` → `current` symlink → `systemctl restart` → `/api/health` → fail olursa önceki release → son **5** release tutulur.
+`main` push (veya Actions → "Deploy production" → Run workflow) → CI’da `tsc` + unit test + **standalone build** → artifact → rsync → `releases/<sha>` → `prisma migrate deploy` (release içindeki `prisma-cli/`) → `seed-prod.mjs` (3 paket yoksa oluşturur) → `current` symlink → `systemctl restart` → `/api/health` → fail olursa önceki release → son **5** release tutulur.
 
 ### Secrets (Settings → Actions)
 
 | Secret | Açıklama |
 |--------|----------|
 | `VPS_HOST` | `206.189.8.235` |
-| `VPS_USER` | örn. `posa` |
+| `VPS_USER` | `root` (activate-release.sh release'i `posa` kullanıcısına chown eder) |
 | `VPS_SSH_KEY` | Deploy **private** key (tam PEM) |
 
 ### Deploy key
