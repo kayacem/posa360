@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getServerSession } from 'next-auth'
+import { auth } from '@/lib/next-auth'
 import { authConfig } from '@/lib/auth-config'
 import Link from 'next/link'
 
@@ -8,7 +8,7 @@ export default async function MerchantLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await getServerSession(authConfig)
+  const session = await await auth()
 
   if (!session || !['TENANT_OWNER', 'TENANT_STAFF'].includes(session.user.role)) {
     redirect('/login')

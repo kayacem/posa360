@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { auth } from '@/lib/next-auth'
 import { authConfig } from '@/lib/auth-config'
 import prisma from '@/lib/db'
 import { promises as dns } from 'dns'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authConfig)
+    const session = await await auth()
     if (!session || session.user.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
     }

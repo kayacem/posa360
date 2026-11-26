@@ -1,4 +1,4 @@
-import { getServerSession } from 'next-auth'
+import { auth } from '@/lib/next-auth'
 import { authConfig } from '@/lib/auth-config'
 import { redirect } from 'next/navigation'
 import { getTenantContext } from '@/lib/tenant'
@@ -8,7 +8,7 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 
 export default async function CustomerOrdersPage() {
-  const session = await getServerSession(authConfig)
+  const session = await await auth()
   if (!session || session.user.role !== 'CUSTOMER') {
     redirect('/login')
   }

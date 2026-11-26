@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { auth } from '@/lib/next-auth'
 import { authConfig } from '@/lib/auth-config'
 import { getTenantContext } from '@/lib/tenant'
 import prisma from '@/lib/db'
@@ -9,7 +9,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authConfig)
+    const session = await await auth()
     if (!session || !['TENANT_OWNER', 'TENANT_STAFF'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Yetkisiz erişim' }, { status: 401 })
     }

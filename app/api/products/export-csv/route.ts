@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { auth } from '@/lib/next-auth'
 import { authConfig } from '@/lib/auth-config'
 import { getTenantContext } from '@/lib/tenant'
 import prisma from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authConfig)
+    const session = await await auth()
     if (!session) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
 
     const tenantContext = await getTenantContext()
