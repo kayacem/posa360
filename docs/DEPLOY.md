@@ -7,7 +7,7 @@ Bu uygulama **posa360.com apex/www’yi kullanmaz**. Apex’te zaten çalışan 
 | `eticaret.posa360.com` | Marketing (`/`, `/paketler`, `/iletisim`, yasal) + `/kayit?plan=` + `/login` + süper admin (`/admin` → `/super-admin`) |
 | `panel.posa360.com` | Süper admin alias (isteğe bağlı) |
 | `{slug}.posa360.com` | Mağaza vitrini + `/admin` (nginx wildcard; mevcut exact `server_name` blokları kazanır) |
-| `örnek.com` / `admin.örnek.com` | Merchant özel domain (TXT doğrulama; SSL sahibi yönetir) |
+| `örnek.com` / `admin.örnek.com` | Merchant özel domain (TXT doğrulama + certbot cron) |
 
 **Yok:** Docker Compose production, Caddy. Stack: **nginx (80/443)** + **systemd `posa-eticaret` (:3030)** + **native PostgreSQL 16**.
 
@@ -64,7 +64,7 @@ nano /opt/posa/apps/eticaret/.env
 chmod 600 /opt/posa/apps/eticaret/.env
 ```
 
-Önemli değişkenler: `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL=https://eticaret.posa360.com`, `NEXT_PUBLIC_*`.
+Önemli değişkenler: `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL=https://eticaret.posa360.com`, `NEXT_PUBLIC_*`, `CERT_AGENT_SECRET`.
 
 ```bash
 echo 'posa ALL=(root) NOPASSWD: /bin/systemctl restart posa-eticaret' | sudo tee /etc/sudoers.d/posa-eticaret
@@ -91,24 +91,56 @@ Port **3030**, `NODE_OPTIONS=--max-old-space-size=512`, `WorkingDirectory=/opt/p
 
 ```bash
 sudo cp deploy/nginx/eticaret.conf /etc/nginx/sites-available/posa-eticaret.conf
-# ssl_certificate yollarını kendi sertifikalarınıza göre düzenleyin (PLACEHOLDER)
 sudo ln -sf /etc/nginx/sites-available/posa-eticaret.conf /etc/nginx/sites-enabled/
+# Sertifika yollarını certbot live dizin adıyla eşleştirin; sonra:
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Wildcard + hub aynı upstream `127.0.0.1:3030`. Diğer ürünlerin exact bloklarına dokunma. Özel domain örneği: `deploy/nginx/custom-domains.conf.example`.
+Wildcard + hub aynı upstream `127.0.0.1:3030`. Diğer ürünlerin exact bloklarına dokunma.
 
-### SSL (sahibi yönetir)
+### Platform TLS — certbot dns-digitalocean
 
-Bu repo sertifika otomasyonu içermez. nginx conf’taki yolları kendi cert’lerinize göre güncelleyin. Gerekli sertifikalar:
+Wildcard `*.posa360.com` + hub `eticaret.posa360.com` (isteğe bağlı `panel.posa360.com` SAN):
 
-| Sertifika | Kullanım |
-|-----------|----------|
-| `eticaret.posa360.com` | Hub (isteğe bağlı aynı cert’e `panel.posa360.com` SAN) |
-| `*.posa360.com` (wildcard) | Mağaza subdomainleri `{slug}.posa360.com` |
-| Her özel domain | `örnek.com` (+ isteğe bağlı `www`) **ve** `admin.örnek.com` |
+```bash
+sudo apt install -y certbot python3-certbot-dns-digitalocean python3-certbot-nginx
+sudo mkdir -p /root/.secrets
+sudo nano /root/.secrets/do.ini   # dns_digitalocean_token = dop_v1_...
+sudo chmod 600 /root/.secrets/do.ini
 
-Reload öncesi her zaman: `sudo nginx -t`.
+# Wildcard for store subdomains
+sudo certbot certonly \
+  --dns-digitalocean \
+  --dns-digitalocean-credentials /root/.secrets/do.ini \
+  --cert-name posa360.com-wildcard \
+  -d '*.posa360.com' \
+  --email admin@posa360.com --agree-tos -n
+
+# Hub (eticaret + optional panel)
+sudo certbot certonly \
+  --dns-digitalocean \
+  --dns-digitalocean-credentials /root/.secrets/do.ini \
+  --cert-name eticaret.posa360.com \
+  -d eticaret.posa360.com -d panel.posa360.com \
+  --email admin@posa360.com --agree-tos -n
+```
+
+`deploy/nginx/eticaret.conf` içindeki `ssl_certificate` yollarını live dizin adlarıyla eşleştirin. Reload öncesi her zaman: `sudo nginx -t`.
+
+### Özel domain sertifikaları (cron)
+
+Doğrulanmış merchant domain’ler (`sslStatus=pending|failed`) için root cron:
+
+```bash
+sudo cp deploy/scripts/issue-domain-cert.sh /usr/local/sbin/posa-eticaret-issue-domain-cert.sh
+sudo chmod +x /usr/local/sbin/posa-eticaret-issue-domain-cert.sh
+sudo mkdir -p /etc/nginx/sites-available/posa-eticaret-custom
+
+echo '*/5 * * * * root API_BASE=https://eticaret.posa360.com /usr/local/sbin/posa-eticaret-issue-domain-cert.sh >> /var/log/posa-eticaret-certs.log 2>&1' \
+  | sudo tee /etc/cron.d/posa-eticaret-certs
+```
+
+Script `GET /api/internal/pending-certs` (`X-Cert-Agent-Secret`) ile domain alır; `certbot --nginx` ile `domain` + `www` + `admin.domain` sertifikası çıkarır; yalnızca `posa-eticaret-custom/` altına vhost yazar; **yalnızca `nginx -t` başarılıysa** reload eder — diğer server block’lara dokunmaz.
 
 ---
 
