@@ -8,8 +8,9 @@ import { OrderStatusManager } from '@/components/merchant/OrderStatusManager'
 export default async function OrderDetailPage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
+  const { id } = await params
   const tenantContext = await getTenantContext()
 
   if (!tenantContext) {
@@ -18,7 +19,7 @@ export default async function OrderDetailPage({
 
   const order = await prisma.order.findFirst({
     where: {
-      id: params.id,
+      id,
       tenantId: tenantContext.id,
     },
     include: {

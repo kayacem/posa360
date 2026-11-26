@@ -1,13 +1,12 @@
-import { seedDatabase } from '../src/lib/seed'
+/**
+ * Thin wrapper — real seed lives at prisma/seed.ts (configured via package.json prisma.seed).
+ */
+import { spawnSync } from 'child_process'
 
-async function main() {
-  try {
-    await seedDatabase()
-    process.exit(0)
-  } catch (error) {
-    console.error('❌ Seed failed:', error)
-    process.exit(1)
-  }
-}
+const result = spawnSync('npx', ['tsx', 'prisma/seed.ts'], {
+  stdio: 'inherit',
+  cwd: process.cwd(),
+  shell: true,
+})
 
-main()
+process.exit(result.status ?? 1)

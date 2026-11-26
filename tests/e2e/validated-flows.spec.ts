@@ -51,7 +51,7 @@ test.describe('E2E: Tenant Isolation', () => {
     expect(hasTenant1).toBeTruthy()
     
     // Tenant 2  
-    await page.goto('http://shopcem.local:43210')
+    await page.goto('http://elektronikdunya.localhost:43210')
     await page.waitForTimeout(500)
     const html2 = await page.content()
     const hasTenant2 = html2.includes('Elektronik Dünyası') || html2.includes('elektronik')
@@ -68,7 +68,7 @@ test.describe('E2E: Custom Domain Resolution', () => {
   })
   
   test('custom domain resolves to tenant 2', async ({ page }) => {
-    await page.goto('http://shopcem.local:43210')
+    await page.goto('http://elektronikdunya.localhost:43210')
     await page.waitForTimeout(500)
     const content = await page.textContent('body')
     const hasContent = content?.includes('Elektronik') || content?.includes('shopcem')

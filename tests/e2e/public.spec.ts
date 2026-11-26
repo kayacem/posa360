@@ -11,7 +11,7 @@ test.describe('Public Flows', () => {
   })
   
   test('custom domain resolves correctly', async ({ page }) => {
-    await page.goto('http://shopcem.local:43210')
+    await page.goto('http://elektronikdunya.localhost:43210')
     await page.waitForTimeout(1000)
     
     const bodyText = await page.textContent('body')
@@ -24,7 +24,7 @@ test.describe('Public Flows', () => {
     await page.waitForTimeout(500)
     const html1 = await page.content()
     
-    await page.goto('http://shopcem.local:43210')
+    await page.goto('http://elektronikdunya.localhost:43210')
     await page.waitForTimeout(500)
     const html2 = await page.content()
     

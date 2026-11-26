@@ -45,11 +45,12 @@ async function main() {
     },
   })
 
-  // Tenant 2: Elektronik Dünya
+  // Tenant 2: Elektronik Dünyası (custom domain shopcem.local)
   const tenant2 = await prisma.tenant.create({
     data: {
-      name: 'Elektronik Dünya',
+      name: 'Elektronik Dünyası',
       slug: 'elektronikdunya',
+      customDomain: 'shopcem.local',
       status: 'ACTIVE',
     },
   })
@@ -102,6 +103,7 @@ async function main() {
       price: 199.99,
       stock: 100,
       isActive: true,
+      isFeatured: true,
     },
   })
 
@@ -138,6 +140,7 @@ async function main() {
       price: 349.99,
       stock: 50,
       isActive: true,
+      isFeatured: true,
     },
   })
 
@@ -163,6 +166,7 @@ async function main() {
       price: 149.99,
       stock: 75,
       isActive: true,
+      isFeatured: true,
     },
   })
 
@@ -187,6 +191,7 @@ async function main() {
       price: 899.99,
       stock: 30,
       isActive: true,
+      isFeatured: true,
     },
   })
 

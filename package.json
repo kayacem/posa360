@@ -9,7 +9,7 @@
     "contract:emit": "prisma contract emit",
     "db:init": "prisma db init",
     "db:push": "prisma db push",
-    "db:seed": "tsx scripts/seed.ts",
+    "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma db push --force-reset && npm run db:seed",
     "setup": "npm run contract:emit && npm run db:push && npm run db:seed",
     "test:unit": "vitest run",

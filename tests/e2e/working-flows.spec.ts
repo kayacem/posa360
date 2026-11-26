@@ -80,7 +80,7 @@ test.describe('E2E: Tenant Isolation', () => {
     expect(url1).toContain('shopmagaza')
     
     // Try to access tenant 2 orders - should not work or redirect
-    await page.goto('http://shopcem.local:43210/admin/orders')
+    await page.goto('http://elektronikdunya.localhost:43210/admin/orders')
     await page.waitForTimeout(1000)
     
     // Should either be redirected to login or show no access
@@ -97,7 +97,7 @@ test.describe('E2E: Tenant Isolation', () => {
     expect(html1).toContain('Shop Mağaza')
     
     // Check tenant 2
-    await page.goto('http://shopcem.local:43210')
+    await page.goto('http://elektronikdunya.localhost:43210')
     await page.waitForTimeout(500)
     const html2 = await page.content()
     expect(html2).toContain('Elektronik Dünyası')
@@ -114,7 +114,7 @@ test.describe('E2E: Custom Domain Resolution', () => {
     expect(content).toContain('Shop Mağaza')
     
     // Test custom domain
-    await page.goto('http://shopcem.local:43210')
+    await page.goto('http://elektronikdunya.localhost:43210')
     await page.waitForTimeout(500)
     content = await page.textContent('body')
     expect(content).toContain('Elektronik Dünyası')

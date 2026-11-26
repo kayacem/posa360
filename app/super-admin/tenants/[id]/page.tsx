@@ -5,9 +5,14 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { TenantActions } from '@/components/super-admin/TenantActions'
 import { DomainBindingForm } from '@/components/super-admin/DomainBindingForm'
 
-export default async function TenantDetailPage({ params }: { params: { id: string } }) {
+export default async function TenantDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
   const tenant = await prisma.tenant.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       _count: {
         select: { products: true, orders: true, customers: true },

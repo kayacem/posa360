@@ -19,6 +19,17 @@ export function middleware(request: NextRequest) {
     headers.set('x-tenant-type', 'super-admin')
     return NextResponse.rewrite(url, { headers })
   }
+
+  // Platform hub only on bare localhost (no tenant subdomain / custom domain)
+  const hostNoPort = hostname.split(':')[0]
+  const isBareLocalhost =
+    hostNoPort === 'localhost' ||
+    hostNoPort === '127.0.0.1' ||
+    hostNoPort === '::1'
+  if (isBareLocalhost && (url.pathname === '/' || url.pathname === '')) {
+    url.pathname = '/platform'
+    return NextResponse.rewrite(url, { headers })
+  }
   
   // 2. Merchant Admin: admin.customdomain.com veya admin.shopslug.posa360.com
   //    veya shopslug.posa360.com/admin

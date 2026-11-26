@@ -3,7 +3,12 @@ import prisma from '@/lib/db'
 import { notFound } from 'next/navigation'
 import { ProductEditForm } from '@/components/merchant/ProductEditForm'
 
-export default async function EditProductPage({ params }: { params: { id: string } }) {
+export default async function EditProductPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
   const tenantContext = await getTenantContext()
 
   if (!tenantContext) {
@@ -11,7 +16,7 @@ export default async function EditProductPage({ params }: { params: { id: string
   }
 
   const product = await prisma.product.findFirst({
-    where: { id: params.id, tenantId: tenantContext.id },
+    where: { id, tenantId: tenantContext.id },
     include: {
       images: true,
       variants: true,
