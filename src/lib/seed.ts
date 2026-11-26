@@ -496,11 +496,29 @@ export async function seedDatabase() {
       status: 'PENDING',
       subtotal: 299.00,
       shippingCost: 29.90,
-      tax: 65.78,
-      totalAmount: 394.68,
-      paymentMethod: 'CREDIT_CARD',
-      items: { create: [{ productId: product1.id, quantity: 2, price: 149.50, subtotal: 299.00 }] },
-      shippingAddress: { create: { customerId: customer1.id, title: 'Ev', fullName: 'Ayşe Yılmaz', phone: '5551234567', line1: 'Bağdat Cad 123', city: 'Istanbul', district: 'Kadıköy', postalCode: '34710', country: 'Türkiye', isDefault: true } },
+      taxAmount: 65.78,
+      total: 394.68,
+      customerEmail: customer1.email,
+      customerName: `${customer1.firstName} ${customer1.lastName}`,
+      customerPhone: customer1.phone,
+      shippingAddress: JSON.stringify({
+        firstName: customer1.firstName,
+        lastName: customer1.lastName,
+        phone: customer1.phone,
+        addressLine1: 'Bağdat Cad No: 123 Daire: 4',
+        il: 'İstanbul',
+        ilce: 'Kadıköy',
+        postalCode: '34710',
+      }),
+      items: {
+        create: [{
+          productId: product1.id,
+          productName: product1.name,
+          quantity: 2,
+          price: 149.50,
+          total: 299.00,
+        }],
+      },
     },
   })
 
@@ -510,18 +528,43 @@ export async function seedDatabase() {
       customerId: customer1.id,
       orderNumber: 'ORD-002',
       status: 'SHIPPED',
-      subtotal: 450.00,
+      subtotal: 699.80,
       shippingCost: 0,
-      tax: 90.00,
-      totalAmount: 540.00,
-      paymentMethod: 'CREDIT_CARD',
-      items: { create: [{ productId: product2.id, quantity: 1, price: 450.00, subtotal: 450.00 }] },
-      shippingAddress: { create: { customerId: customer1.id, title: 'İş', fullName: 'Ayşe Yılmaz', phone: '5551234567', line1: 'Levent Plaza', city: 'Istanbul', district: 'Şişli', postalCode: '34330', country: 'Türkiye' } },
+      taxAmount: 139.96,
+      total: 839.76,
+      customerEmail: customer1.email,
+      customerName: `${customer1.firstName} ${customer1.lastName}`,
+      customerPhone: customer1.phone,
+      shippingAddress: JSON.stringify({
+        firstName: customer1.firstName,
+        lastName: customer1.lastName,
+        phone: customer1.phone,
+        addressLine1: 'Levent Plaza Kat: 5',
+        il: 'İstanbul',
+        ilce: 'Şişli',
+        postalCode: '34330',
+      }),
+      items: {
+        create: [{
+          productId: product2.id,
+          productName: product2.name,
+          variantName: 'Beden: 34',
+          quantity: 2,
+          price: 349.90,
+          total: 699.80,
+        }],
+      },
     },
   })
 
   await prisma.shipment.create({
-    data: { orderId: order2.id, carrier: 'Yurtiçi Kargo', trackingNumber: 'YK123456789', status: 'IN_TRANSIT', shippedAt: new Date() },
+    data: {
+      orderId: order2.id,
+      carrier: 'Yurtiçi Kargo',
+      trackingNumber: 'YK123456789',
+      status: 'IN_TRANSIT',
+      shippedAt: new Date(),
+    },
   })
 
   const order3 = await prisma.order.create({
@@ -530,37 +573,153 @@ export async function seedDatabase() {
       customerId: customer1.id,
       orderNumber: 'ORD-003',
       status: 'DELIVERED',
-      subtotal: 199.00,
+      subtotal: 149.90,
       shippingCost: 29.90,
-      tax: 45.78,
-      totalAmount: 274.68,
-      paymentMethod: 'CREDIT_CARD',
-      items: { create: [{ productId: product1.id, quantity: 1, price: 199.00, subtotal: 199.00 }] },
-      shippingAddress: { create: { customerId: customer1.id, title: 'Ev', fullName: 'Ayşe Yılmaz', phone: '5551234567', line1: 'Test Sok 1', city: 'Istanbul', district: 'Kadıköy', postalCode: '34710', country: 'Türkiye' } },
+      taxAmount: 35.96,
+      total: 215.76,
+      customerEmail: customer1.email,
+      customerName: `${customer1.firstName} ${customer1.lastName}`,
+      customerPhone: customer1.phone,
+      shippingAddress: JSON.stringify({
+        firstName: customer1.firstName,
+        lastName: customer1.lastName,
+        phone: customer1.phone,
+        addressLine1: 'Test Sok No: 1',
+        il: 'İstanbul',
+        ilce: 'Kadıköy',
+        postalCode: '34710',
+      }),
+      items: {
+        create: [{
+          productId: product1.id,
+          productName: product1.name,
+          quantity: 1,
+          price: 149.90,
+          total: 149.90,
+        }],
+      },
     },
   })
 
-  const orderItem = await prisma.orderItem.findFirst({ where: { orderId: order3.id } })
+  const orderItem3 = await prisma.orderItem.findFirst({ where: { orderId: order3.id } })
   
   await prisma.return.create({
     data: {
-      tenantId: tenant1.id,
       orderId: order3.id,
-      customerId: customer1.id,
       returnNumber: 'RET-001',
       status: 'REQUESTED',
       reason: 'Beden uygun değil',
-      refundAmount: 274.68,
-      returnItems: { create: [{ orderItemId: orderItem!.id, quantity: 1, reason: 'WRONG_SIZE' }] },
+      description: 'Ürün beklediğimden daha küçük geldi, bir beden büyük istiyorum.',
+      items: JSON.stringify([{
+        orderItemId: orderItem3!.id,
+        quantity: 1,
+        reason: 'WRONG_SIZE',
+      }]),
+      refundAmount: 215.76,
     },
   })
 
-  await prisma.order.createMany({
-    data: [
-      { tenantId: tenant1.id, customerId: customer1.id, orderNumber: 'ORD-004', status: 'CONFIRMED', subtotal: 350, shippingCost: 29.90, tax: 75.98, totalAmount: 455.88, paymentMethod: 'BANK_TRANSFER' },
-      { tenantId: tenant1.id, customerId: customer1.id, orderNumber: 'ORD-005', status: 'PROCESSING', subtotal: 280, shippingCost: 29.90, tax: 61.98, totalAmount: 371.88, paymentMethod: 'CREDIT_CARD' },
-      { tenantId: tenant1.id, customerId: customer1.id, orderNumber: 'ORD-006', status: 'CANCELLED', subtotal: 150, shippingCost: 29.90, tax: 35.98, totalAmount: 215.88, paymentMethod: 'CREDIT_CARD' },
-    ],
+  await prisma.order.create({
+    data: {
+      tenantId: tenant1.id,
+      customerId: customer1.id,
+      orderNumber: 'ORD-004',
+      status: 'CONFIRMED',
+      subtotal: 299.80,
+      shippingCost: 29.90,
+      taxAmount: 65.94,
+      total: 395.64,
+      customerEmail: customer1.email,
+      customerName: `${customer1.firstName} ${customer1.lastName}`,
+      customerPhone: customer1.phone,
+      shippingAddress: JSON.stringify({
+        firstName: customer1.firstName,
+        lastName: customer1.lastName,
+        phone: customer1.phone,
+        addressLine1: 'Merkez Mah. 100.Yıl Cad. No: 25',
+        il: 'Ankara',
+        ilce: 'Çankaya',
+        postalCode: '06100',
+      }),
+      items: {
+        create: [{
+          productId: product1.id,
+          productName: product1.name,
+          quantity: 2,
+          price: 149.90,
+          total: 299.80,
+        }],
+      },
+    },
+  })
+
+  await prisma.order.create({
+    data: {
+      tenantId: tenant1.id,
+      customerId: customer1.id,
+      orderNumber: 'ORD-005',
+      status: 'PREPARING',
+      subtotal: 349.90,
+      shippingCost: 29.90,
+      taxAmount: 75.96,
+      total: 455.76,
+      customerEmail: customer1.email,
+      customerName: `${customer1.firstName} ${customer1.lastName}`,
+      customerPhone: customer1.phone,
+      shippingAddress: JSON.stringify({
+        firstName: customer1.firstName,
+        lastName: customer1.lastName,
+        phone: customer1.phone,
+        addressLine1: 'Teknokent Plaza Kat: 3',
+        il: 'İzmir',
+        ilce: 'Bornova',
+        postalCode: '35100',
+      }),
+      items: {
+        create: [{
+          productId: product2.id,
+          productName: product2.name,
+          variantName: 'Beden: 32',
+          quantity: 1,
+          price: 349.90,
+          total: 349.90,
+        }],
+      },
+    },
+  })
+
+  await prisma.order.create({
+    data: {
+      tenantId: tenant1.id,
+      customerId: customer1.id,
+      orderNumber: 'ORD-006',
+      status: 'CANCELLED',
+      subtotal: 149.90,
+      shippingCost: 29.90,
+      taxAmount: 35.96,
+      total: 215.76,
+      customerEmail: customer1.email,
+      customerName: `${customer1.firstName} ${customer1.lastName}`,
+      customerPhone: customer1.phone,
+      shippingAddress: JSON.stringify({
+        firstName: customer1.firstName,
+        lastName: customer1.lastName,
+        phone: customer1.phone,
+        addressLine1: 'Test Sok No: 99',
+        il: 'Antalya',
+        ilce: 'Muratpaşa',
+        postalCode: '07100',
+      }),
+      items: {
+        create: [{
+          productId: product1.id,
+          productName: product1.name,
+          quantity: 1,
+          price: 149.90,
+          total: 149.90,
+        }],
+      },
+    },
   })
 
   console.log('✅ Orders created')
