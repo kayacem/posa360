@@ -22,11 +22,29 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
+# CI ships the release as one tarball (upload-artifact drops hidden dirs like .next)
+if [[ -f "$RELEASE_DIR/release.tgz" ]]; then
+  echo "==> Unpack release.tgz"
+  tar xzf "$RELEASE_DIR/release.tgz" -C "$RELEASE_DIR" --no-same-owner
+  rm -f "$RELEASE_DIR/release.tgz"
+fi
+if [[ ! -f "$RELEASE_DIR/.next/BUILD_ID" ]]; then
+  echo "Release has no .next/BUILD_ID — refusing to activate" >&2
+  exit 1
+fi
+
 # Service runs as an unprivileged user; release files must be readable/writable by it
 RUN_USER="${RUN_USER:-posa}"
 if [[ "$(id -u)" -eq 0 ]] && id "$RUN_USER" >/dev/null 2>&1; then
   chown -R "$RUN_USER:$RUN_USER" "$RELEASE_DIR"
 fi
+
+# actions/upload-artifact does not preserve file modes: restore exec bits on the
+# Prisma engine binaries (schema-engine is spawned by `migrate deploy`) and scripts.
+find "$RELEASE_DIR/prisma-cli/node_modules/@prisma/engines" "$RELEASE_DIR/node_modules/@prisma/engines" \
+  -maxdepth 1 -type f -name 'schema-engine-*' -exec chmod +x {} + 2>/dev/null || true
+find "$RELEASE_DIR/prisma-cli/node_modules/.bin" "$RELEASE_DIR/deploy/scripts" \
+  -maxdepth 1 \( -type f -o -type l \) -exec chmod +x {} + 2>/dev/null || true
 
 PREV=""
 if [[ -L "$CURRENT_LINK" ]]; then

@@ -57,5 +57,19 @@ mkdir -p "$OUT/deploy/scripts"
 cp deploy/scripts/activate-release.sh "$OUT/deploy/scripts/"
 chmod +x "$OUT/deploy/scripts/activate-release.sh"
 
+# actions/upload-artifact@v4 drops hidden paths (.next, node_modules/.prisma) and file
+# modes. In CI, ship the tree as one tarball + the activate script; activate-release.sh
+# unpacks it on the server. (Fixing this in deploy.yml would need include-hidden-files.)
+if [[ "${GITHUB_ACTIONS:-}" == "true" || "${PACK_TARBALL:-}" == "1" ]]; then
+  echo "==> Pack release tree → release.tgz"
+  TMP_TGZ="$(mktemp -d)/release.tgz"
+  tar czf "$TMP_TGZ" -C "$OUT" .
+  rm -rf "$OUT"
+  mkdir -p "$OUT/deploy/scripts"
+  mv "$TMP_TGZ" "$OUT/release.tgz"
+  cp deploy/scripts/activate-release.sh "$OUT/deploy/scripts/"
+  chmod +x "$OUT/deploy/scripts/activate-release.sh"
+fi
+
 echo "Packaged → $OUT"
 du -sh "$OUT"
