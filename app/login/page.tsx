@@ -29,7 +29,17 @@ export default function LoginPage() {
       setError('Geçersiz e-posta veya şifre')
       setLoading(false)
     } else {
-      router.push('/super-admin')
+      // Fetch session to determine redirect
+      const response = await fetch('/api/auth/session')
+      const session = await response.json()
+      
+      if (session?.user?.role === 'SUPER_ADMIN') {
+        router.push('/super-admin')
+      } else if (session?.user?.role === 'TENANT_OWNER' || session?.user?.role === 'TENANT_ADMIN') {
+        router.push('/admin')
+      } else {
+        router.push('/')
+      }
       router.refresh()
     }
   }
