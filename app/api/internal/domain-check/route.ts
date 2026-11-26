@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 
-const RESERVED_SUBDOMAINS = new Set(['www', 'mail'])
+const RESERVED_SUBDOMAINS = new Set(['mail'])
 
 /**
- * Caddy On-Demand TLS "ask" endpoint.
- * GET /api/internal/domain-check?domain=example.com
- *
- * - Allows platform subdomains (app/admin/{store}.posa360.com) — NOT apex/www
- * - Allows verified merchant custom domains (+ admin.* variant)
+ * Caddy On-Demand TLS ask endpoint.
+ * Allows: platform apex, www, app/admin/{store}.*, verified custom domains (+ admin.*).
  */
 export async function GET(req: NextRequest) {
   const domainRaw = req.nextUrl.searchParams.get('domain') || ''
@@ -22,12 +19,11 @@ export async function GET(req: NextRequest) {
     .split(':')[0]
     .toLowerCase()
 
-  // Marketing site — never issue certs / never claim apex or www
+  // Marketing + platform subdomains
   if (domain === platformHost || domain === `www.${platformHost}`) {
-    return new NextResponse('marketing', { status: 404 })
+    return new NextResponse('ok', { status: 200 })
   }
 
-  // Platform subdomains we serve: app, admin, panel, and store slugs
   if (domain.endsWith(`.${platformHost}`)) {
     const sub = domain.slice(0, -(`.${platformHost}`.length))
     if (!sub || sub.includes('.')) {
@@ -45,28 +41,16 @@ export async function GET(req: NextRequest) {
   )
 
   const verified = await prisma.domainVerification.findFirst({
-    where: {
-      isVerified: true,
-      domain: { in: candidates },
-    },
+    where: { isVerified: true, domain: { in: candidates } },
     select: { id: true },
   })
-
-  if (verified) {
-    return new NextResponse('ok', { status: 200 })
-  }
+  if (verified) return new NextResponse('ok', { status: 200 })
 
   const tenant = await prisma.tenant.findFirst({
-    where: {
-      customDomain: { in: candidates },
-      status: 'ACTIVE',
-    },
+    where: { customDomain: { in: candidates }, status: 'ACTIVE' },
     select: { id: true },
   })
-
-  if (tenant) {
-    return new NextResponse('ok', { status: 200 })
-  }
+  if (tenant) return new NextResponse('ok', { status: 200 })
 
   return new NextResponse('unknown', { status: 404 })
 }

@@ -60,16 +60,16 @@ test.describe('Custom domain host resolution', () => {
     )
     expect(appSub.status()).toBe(200)
 
-    // Apex / www are marketing — must NOT be claimed
+    // Apex / www are marketing — TLS allowed
     const apex = await request.get(
       'http://localhost:43210/api/internal/domain-check?domain=posa360.com'
     )
-    expect(apex.status()).toBe(404)
+    expect(apex.status()).toBe(200)
 
     const www = await request.get(
       'http://localhost:43210/api/internal/domain-check?domain=www.posa360.com'
     )
-    expect(www.status()).toBe(404)
+    expect(www.status()).toBe(200)
 
     const unknown = await request.get(
       'http://localhost:43210/api/internal/domain-check?domain=not-a-real-shop-xyz.com'

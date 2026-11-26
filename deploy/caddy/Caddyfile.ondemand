@@ -7,9 +7,8 @@
 	}
 }
 
-# IMPORTANT: Do NOT claim posa360.com or www — marketing site lives on apex elsewhere.
-# Per-host certs for platform subdomains (app, admin, stores). Not a single wildcard cert.
-*.posa360.com {
+# Marketing apex + www + platform subdomains (per-host certs)
+posa360.com, www.posa360.com, *.posa360.com {
 	tls {
 		on_demand
 	}
@@ -17,7 +16,7 @@
 	reverse_proxy app:3000
 }
 
-# Merchant custom domains (ask endpoint rejects platform apex/www)
+# Merchant custom domains
 https:// {
 	tls {
 		on_demand

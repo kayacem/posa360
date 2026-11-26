@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -12,8 +12,12 @@ const PLATFORM =
   (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_PLATFORM_DOMAIN?.split(':')[0]) ||
   'posa360.com'
 
-export default function KayitPage() {
+function KayitForm() {
   const router = useRouter()
+  const search = useSearchParams()
+  const plan = search.get('plan') || 'profesyonel'
+  const billing = search.get('billing') || 'monthly'
+
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [contactPerson, setContactPerson] = useState('')
@@ -49,24 +53,17 @@ export default function KayitPage() {
       const res = await fetch('/api/app/kayit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, slug, contactPerson, email, password }),
+        body: JSON.stringify({ name, slug, contactPerson, email, password, plan, billing }),
       })
       const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.error || 'Kayıt başarısız')
-      }
+      if (!res.ok) throw new Error(data.error || 'Kayıt başarısız')
 
-      const login = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-      })
+      const login = await signIn('credentials', { email, password, redirect: false })
       if (login?.error) {
         router.push('/login')
         return
       }
 
-      // Merchant panel on their store subdomain when not on localhost
       const host = window.location.hostname
       if (host === 'localhost' || host === '127.0.0.1') {
         window.location.href = `http://${data.slug}.localhost:${window.location.port || '43210'}/admin`
@@ -80,83 +77,72 @@ export default function KayitPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-lg">
-        <CardHeader>
-          <CardTitle className="text-center text-2xl">Mağaza Kaydı</CardTitle>
-          <p className="text-center text-sm text-gray-500 mt-1">
-            Marketing sitesinden gelen kayıt: app.{PLATFORM}/kayit
+    <Card className="w-full max-w-lg">
+      <CardHeader>
+        <CardTitle className="text-center text-2xl">Mağaza Kaydı</CardTitle>
+        <p className="text-center text-sm text-gray-500 mt-1">
+          Paket: <strong>{plan}</strong> · 14 gün deneme
+          {billing === 'yearly' ? ' · yıllık faturalama' : ''}
+        </p>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Mağaza Adı</label>
+            <Input required value={name} onChange={(e) => onNameChange(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Subdomain</label>
+            <div className="flex items-center gap-2">
+              <Input
+                required
+                pattern="[a-z0-9-]+"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value.toLowerCase())}
+              />
+              <span className="text-sm text-gray-500 whitespace-nowrap">.{PLATFORM}</span>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">İletişim Kişisi</label>
+            <Input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">E-posta</label>
+            <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Şifre (min 8)</label>
+            <Input
+              type="password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          {error && <div className="p-3 bg-red-50 text-red-800 rounded-lg text-sm">{error}</div>}
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? 'Kaydediliyor...' : '14 gün ücretsiz başla'}
+          </Button>
+          <p className="text-center text-sm text-gray-600">
+            Zaten hesabınız var mı?{' '}
+            <Link href="/login" className="underline">
+              Giriş yap
+            </Link>
           </p>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Mağaza Adı</label>
-              <Input
-                required
-                value={name}
-                onChange={(e) => onNameChange(e.target.value)}
-                placeholder="Örn: Shop Mağaza"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Subdomain</label>
-              <div className="flex items-center gap-2">
-                <Input
-                  required
-                  pattern="[a-z0-9-]+"
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value.toLowerCase())}
-                  placeholder="shopmagaza"
-                />
-                <span className="text-sm text-gray-500 whitespace-nowrap">.{PLATFORM}</span>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">İletişim Kişisi</label>
-              <Input
-                value={contactPerson}
-                onChange={(e) => setContactPerson(e.target.value)}
-                placeholder="Ad Soyad"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">E-posta</label>
-              <Input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Şifre (min 8)</label>
-              <Input
-                type="password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
 
-            {error && (
-              <div className="p-3 bg-red-50 text-red-800 rounded-lg text-sm">{error}</div>
-            )}
-
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Kaydediliyor...' : 'Kayıt Ol'}
-            </Button>
-
-            <p className="text-center text-sm text-gray-600">
-              Zaten hesabınız var mı?{' '}
-              <Link href="/login" className="underline">
-                Giriş yap
-              </Link>
-            </p>
-          </form>
-        </CardContent>
-      </Card>
+export default function KayitPage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <Suspense fallback={<div>Yükleniyor…</div>}>
+        <KayitForm />
+      </Suspense>
     </div>
   )
 }

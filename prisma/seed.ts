@@ -32,20 +32,89 @@ async function main() {
   })
   console.log('✅ Super admin created')
 
+  // NOTE: Plan prices below are PLACEHOLDERS — owner will set real live prices in super admin.
+  // Yearly ≈ 20% off (monthly * 12 * 0.8).
+  await prisma.plan.createMany({
+    data: [
+      {
+        slug: 'baslangic',
+        name: 'Başlangıç',
+        description: 'Yeni mağazalar için sade başlangıç.',
+        monthlyPrice: 990,
+        yearlyPrice: 9504, // 990*12*0.8
+        features: JSON.stringify([
+          'Kendi subdomain',
+          'Sipariş & iade yönetimi',
+          'iyzico / havale',
+          'CSV ürün yükleme',
+          'Temel tema',
+        ]),
+        maxProducts: 100,
+        maxOrders: 1000,
+        maxStaff: 2,
+        highlighted: false,
+        sortOrder: 1,
+      },
+      {
+        slug: 'profesyonel',
+        name: 'Profesyonel',
+        description: 'Büyüyen markalar için tam operasyon.',
+        monthlyPrice: 1990,
+        yearlyPrice: 19104, // 1990*12*0.8
+        features: JSON.stringify([
+          'Özel domain',
+          'Sipariş–iade–kargo tek panel',
+          'iyzico / PayTR / kapıda',
+          'Yurtiçi / Aras / MNG / Sürat / PTT',
+          'Personel yetkileri',
+          'Tema düzenleyici',
+          'CSV toplu yükleme',
+        ]),
+        maxProducts: 2000,
+        maxOrders: 20000,
+        maxStaff: 10,
+        highlighted: true,
+        sortOrder: 2,
+      },
+      {
+        slug: 'kurumsal',
+        name: 'Kurumsal',
+        description: 'Yüksek hacim ve ekip için.',
+        monthlyPrice: 3990,
+        yearlyPrice: 38304, // 3990*12*0.8
+        features: JSON.stringify([
+          'Profesyonel’deki her şey',
+          'Öncelikli destek',
+          'Yüksek limitler',
+          'Çoklu personel',
+          'Gelişmiş raporlar',
+        ]),
+        maxProducts: 20000,
+        maxOrders: 200000,
+        maxStaff: 50,
+        highlighted: false,
+        sortOrder: 3,
+      },
+    ],
+  })
+  console.log('✅ Plans seeded (placeholder prices — owner will update)')
+
   const tenant1CreatedAt = monthsAgo(8)
   const tenant1 = await prisma.tenant.create({
     data: {
       name: 'Shop Mağaza',
       slug: 'shopmagaza',
       status: 'ACTIVE',
-      plan: 'professional',
+      plan: 'profesyonel',
       companyName: 'Shop Mağaza Ticaret A.Ş.',
       contactPerson: 'Ahmet Yılmaz',
       contactEmail: 'ahmet@shopmagaza.com',
       contactPhone: '0212 555 0101',
       taxNumber: '1234567890',
       address: 'Caferağa Mah. Moda Cad. No:12 Kadıköy/İstanbul',
-      monthlyFee: 299,
+      monthlyFee: 1990,
+      maxProducts: 2000,
+      maxStaff: 10,
       lastPaymentDate: monthsAgo(0),
       lastPaymentStatus: 'PAID',
       nextPaymentDue: (() => {
@@ -101,14 +170,16 @@ async function main() {
       slug: 'elektronikdunya',
       customDomain: 'shopcem.local',
       status: 'ACTIVE',
-      plan: 'basic',
+      plan: 'baslangic',
       companyName: 'Elektronik Dünyası Ltd. Şti.',
       contactPerson: 'Mehmet Demir',
       contactEmail: 'mehmet@elektronikdunya.com',
       contactPhone: '0216 444 0202',
       taxNumber: '9876543210',
       address: 'Levent Mah. Büyükdere Cad. No:45 Beşiktaş/İstanbul',
-      monthlyFee: 149,
+      monthlyFee: 990,
+      maxProducts: 100,
+      maxStaff: 2,
       lastPaymentDate: monthsAgo(1),
       lastPaymentStatus: 'OVERDUE',
       nextPaymentDue: monthsAgo(0),
@@ -151,8 +222,8 @@ async function main() {
 
   // Tenant payments (last 6 months each)
   for (const tenant of [
-    { t: tenant1, fee: 299, created: tenant1CreatedAt },
-    { t: tenant2, fee: 149, created: tenant2CreatedAt },
+    { t: tenant1, fee: 1990, created: tenant1CreatedAt },
+    { t: tenant2, fee: 990, created: tenant2CreatedAt },
   ]) {
     for (let m = 5; m >= 0; m--) {
       const periodDate = monthsAgo(m)
@@ -481,6 +552,7 @@ async function main() {
     returns: await prisma.return.count(),
     returnItems: await prisma.returnItem.count(),
     tenantPayments: await prisma.tenantPayment.count(),
+    plans: await prisma.plan.count(),
   }
 
   console.log('\n✅ Database seeding completed!')

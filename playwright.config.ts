@@ -64,6 +64,7 @@ export default defineConfig({
         '**/public.spec.ts',
         '**/tenant-resolution.spec.ts',
         '**/host-resolution-custom-domain.spec.ts',
+        '**/marketing-site.spec.ts',
         '**/final-tests.spec.ts',
         '**/final-working-tests.spec.ts',
         '**/basic-flow.spec.ts',

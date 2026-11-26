@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// Platform root domain (apex is marketing — this app does NOT serve it)
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN || 'localhost:43210'
 const PLATFORM_HOST = PLATFORM_DOMAIN.split(':')[0].toLowerCase()
-
-/** Subdomains that are never store tenants */
 const RESERVED_SUBDOMAINS = new Set(['www', 'app', 'admin', 'mail', 'panel'])
 
 function hostWithoutPort(hostname: string): string {
@@ -16,12 +13,18 @@ function isLocalDevHost(host: string): boolean {
   return host === 'localhost' || host === '127.0.0.1' || host === '::1'
 }
 
-/** app.posa360.com (+ bare localhost for local login/kayit) */
-function isPlatformAppHost(host: string): boolean {
-  return host === `app.${PLATFORM_HOST}` || isLocalDevHost(host)
+function isMarketingHost(host: string): boolean {
+  return (
+    host === PLATFORM_HOST ||
+    host === `www.${PLATFORM_HOST}` ||
+    isLocalDevHost(host)
+  )
 }
 
-/** admin.posa360.com | panel.posa360.com */
+function isPlatformAppHost(host: string): boolean {
+  return host === `app.${PLATFORM_HOST}`
+}
+
 function isPlatformAdminHost(host: string): boolean {
   return host === `admin.${PLATFORM_HOST}` || host === `panel.${PLATFORM_HOST}`
 }
@@ -33,9 +36,18 @@ function stripWww(host: string): string {
 function platformSubdomain(host: string): string | null {
   if (!host.endsWith(`.${PLATFORM_HOST}`)) return null
   const sub = host.slice(0, -(`.${PLATFORM_HOST}`.length))
-  if (!sub || sub.includes('.')) return sub.split('.')[0] || null
-  return sub
+  if (!sub) return null
+  return sub.split('.')[0] || null
 }
+
+const MARKETING_PATHS = new Set([
+  '/',
+  '/paketler',
+  '/iletisim',
+  '/kvkk',
+  '/gizlilik',
+  '/mesafeli-satis',
+])
 
 export function middleware(request: NextRequest) {
   const url = request.nextUrl.clone()
@@ -50,34 +62,60 @@ export function middleware(request: NextRequest) {
   headers.delete('x-tenant-custom-domain')
   headers.delete('x-tenant-path-based')
 
-  // Internal TLS ask endpoint — no tenant rewrite
   if (url.pathname.startsWith('/api/internal/')) {
     return NextResponse.next({ request: { headers } })
   }
 
-  // Apex / www must not be served by this app (marketing site). Refuse if misrouted.
-  if (
-    !isLocalDevHost(host) &&
-    (host === PLATFORM_HOST || host === `www.${PLATFORM_HOST}`)
-  ) {
-    return new NextResponse(
-      'posa360.com apex is the marketing site — use app.posa360.com / admin.posa360.com / {store}.posa360.com',
-      { status: 404 }
-    )
+  // www → apex (production). Localhost stays as-is.
+  if (host === `www.${PLATFORM_HOST}` && !isLocalDevHost(host)) {
+    const apex = new URL(request.url)
+    apex.hostname = PLATFORM_HOST
+    return NextResponse.redirect(apex, 308)
   }
 
-  // 1. Platform app hub: app.posa360.com (login + kayit) / localhost
+  // 1. Marketing site: apex + localhost (dev)
+  // Keep /login /kayit /super-admin /platform /api on same host without rewrite to /marketing
+  if (isMarketingHost(host) && !isPlatformAppHost(host) && !isPlatformAdminHost(host)) {
+    const path = url.pathname
+    const isAppRoute =
+      path.startsWith('/login') ||
+      path.startsWith('/kayit') ||
+      path.startsWith('/super-admin') ||
+      path.startsWith('/platform') ||
+      path.startsWith('/api') ||
+      path.startsWith('/admin') ||
+      path.startsWith('/marketing')
+
+    if (!isAppRoute && (MARKETING_PATHS.has(path) || path === '/')) {
+      headers.set('x-tenant-type', 'marketing')
+      url.pathname = path === '/' ? '/marketing' : `/marketing${path}`
+      return NextResponse.rewrite(url, { request: { headers } })
+    }
+
+    if (path.startsWith('/marketing')) {
+      headers.set('x-tenant-type', 'marketing')
+      return NextResponse.rewrite(url, { request: { headers } })
+    }
+
+    // /login, /kayit etc. on apex/localhost
+    if (path === '/' || path === '') {
+      headers.set('x-tenant-type', 'marketing')
+      url.pathname = '/marketing'
+      return NextResponse.rewrite(url, { request: { headers } })
+    }
+  }
+
+  // 2. Platform app hub: app.posa360.com
   if (isPlatformAppHost(host)) {
     headers.set('x-tenant-type', 'platform-app')
     if (url.pathname === '/' || url.pathname === '') {
       url.pathname = '/login'
       return NextResponse.rewrite(url, { request: { headers } })
     }
-    // /kayit, /login, /platform, /api/* etc. pass through
     return NextResponse.rewrite(url, { request: { headers } })
   }
 
-  // 2. Super Admin: admin.posa360.com | panel.posa360.com | /super-admin
+  // 3. Super Admin
   if (isPlatformAdminHost(host) || url.pathname.startsWith('/super-admin')) {
     headers.set('x-tenant-type', 'super-admin')
     if (isPlatformAdminHost(host) && (url.pathname === '/' || url.pathname === '')) {
@@ -87,7 +125,6 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(url, { request: { headers } })
   }
 
-  // Reserved platform subdomains (mail, www already handled, etc.) — not stores
   const reservedSub = platformSubdomain(host)
   if (reservedSub && RESERVED_SUBDOMAINS.has(reservedSub)) {
     return new NextResponse('Not found', { status: 404 })
@@ -96,16 +133,14 @@ export function middleware(request: NextRequest) {
   const isAdminSubdomain = host.startsWith('admin.')
   const isAdminPath = url.pathname.startsWith('/admin')
 
-  // 3. Merchant Admin: admin.customdomain | slug.posa360.com/admin
+  // 4. Merchant Admin
   if (isAdminSubdomain || isAdminPath) {
     let tenantIdentifier: string | null = null
     let isCustomDomain = false
 
     if (isAdminSubdomain) {
       const withoutAdmin = host.slice('admin.'.length)
-
       if (withoutAdmin === PLATFORM_HOST || withoutAdmin.endsWith(`.${PLATFORM_HOST}`)) {
-        // admin.slug.posa360.com
         const sub = withoutAdmin.endsWith(`.${PLATFORM_HOST}`)
           ? withoutAdmin.slice(0, -(`.${PLATFORM_HOST}`.length))
           : null
@@ -118,7 +153,7 @@ export function middleware(request: NextRequest) {
       const sub = platformSubdomain(host)
       if (sub && !RESERVED_SUBDOMAINS.has(sub)) {
         tenantIdentifier = sub
-      } else if (!host.includes(PLATFORM_HOST) && !isLocalDevHost(host)) {
+      } else if (!host.includes(PLATFORM_HOST) && !isLocalDevHost(host) && host !== PLATFORM_HOST) {
         tenantIdentifier = stripWww(host)
         isCustomDomain = true
       }
@@ -140,11 +175,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(url, { request: { headers } })
   }
 
-  // 4. Storefront: tenant subdomain or custom domain (never apex)
+  // 5. Storefront
   let tenantIdentifier: string | null = null
   let isCustomDomain = false
 
-  if (!host.includes(PLATFORM_HOST) && !isLocalDevHost(host)) {
+  if (!host.includes(PLATFORM_HOST) && !isLocalDevHost(host) && host !== PLATFORM_HOST) {
     tenantIdentifier = stripWww(host)
     isCustomDomain = true
   } else {

@@ -14,6 +14,15 @@ export async function POST(req: NextRequest) {
 
     const data = await req.json()
 
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantContext.id } })
+    const productCount = await prisma.product.count({ where: { tenantId: tenantContext.id } })
+    if (tenant && productCount >= tenant.maxProducts) {
+      return NextResponse.json(
+        { error: `Ürün limiti doldu (${tenant.maxProducts}). Paketinizi yükseltin.` },
+        { status: 400 }
+      )
+    }
+
     const product = await prisma.product.create({
       data: {
         tenantId: tenantContext.id,
